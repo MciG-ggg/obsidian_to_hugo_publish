@@ -1,0 +1,46 @@
+# Hugo博客发布工具配置文件示例
+# 重命名此文件为 config.yaml 并填入你的配置
+
+# 默认路径配置
+paths:
+  obsidian:
+    vault: "~/path/to/your/obsidian/vault"    # Obsidian仓库路径
+    images: "~/path/to/your/obsidian/images"  # 图片存储路径
+  hugo:
+    blog: "~/path/to/your/hugo/blog"    # Hugo博客目录
+    public: "public"               # 生成的静态文件目录
+
+# Git仓库配置
+repositories:
+  source:
+    url: "git@github.com:username/blog-source.git"
+    branch: "main"
+  pages:
+    url: "git@github.com:username/username.github.io.git"
+    branch: "main"
+
+# 图片处理配置
+images:
+  optimize: false          # 是否优化图片
+  max_width: 1920         # 最大宽度
+  quality: 85             # 图片质量(1-100)
+  generate_thumbnail: false    # 是否生成缩略图
+  thumbnail_width: 400        # 缩略图宽度
+
+# 文章处理配置
+posts:
+  auto_summary: false     # 是否自动生成摘要
+  summary_length: 200     # 摘要长度
+  link_related: false     # 是否链接相关文章
+  related_count: 5       # 相关文章数量
+
+# Hugo配置
+hugo:
+  theme: "PaperMod"      # 主题名称
+  baseURL: "https://username.github.io/"  # 网站基础URL
+  
+# 部署配置
+deployment:
+  backup: false          # 是否在部署前备份
+  check_links: false    # 是否检查链接
+  minify: true         # 是否压缩HTML/CSS/JS

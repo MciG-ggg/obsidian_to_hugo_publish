@@ -17,6 +17,7 @@ script_dir = current_dir / 'scripts'
 sys.path.insert(0, str(script_dir))
 
 from scripts.obsidian_image_handler import process_obsidian_images
+from scripts.config_manager import Config
 
 # ANSI 颜色代码
 COLOR_GREEN = "\033[92m"    # 成功信息
@@ -315,12 +316,14 @@ def preview_site(hugo_dir):
         print_error(f"启动预览服务器时出错: {str(e)}")
 
 def main():
+    config = Config()
+    
     parser = argparse.ArgumentParser(description='将Markdown文件发布到Hugo博客')
     parser.add_argument('--source', 
-                       default='~/Documents/Obsidian Vault/',
+                       default=config.get('paths.obsidian.vault'),
                        help='包含markdown文件的源目录')
     parser.add_argument('--hugo-dir',
-                       default='~/github_pages/blog',
+                       default=config.get('paths.hugo.blog'),
                        help='Hugo博客目录')
     parser.add_argument('--files',
                        nargs='*',
@@ -379,8 +382,8 @@ def main():
         # 4. 部署到仓库
         print_step(3, "部署到远程仓库")
         commit_msg = "重新发布所有文章"
-        repo_source = 'git@github.com:MciG-ggg/hugo_blog.git'
-        repo_pages = 'git@github.com:MciG-ggg/MciG-ggg.github.io.git'
+        repo_source = config.get('repositories.source.url')
+        repo_pages = config.get('repositories.pages.url')
         if deploy_to_repos(hugo_dir, repo_source, repo_pages, commit_msg):
             print_success("所有文章已重新发布并部署")
         return
@@ -404,10 +407,11 @@ def main():
             article_name = Path(md_file).stem
             unpublish_article(hugo_dir, article_name)
         # git操作
-        repo_source = 'git@github.com:MciG-ggg/hugo_blog.git'
+        repo_source = config.get('repositories.source.url')
+        repo_pages = config.get('repositories.pages.url')
         print(f"{COLOR_YELLOW}推送到远端...{COLOR_RESET}")
         commit_msg = input(f"请输入取消发布的提交信息: ").strip() or "Unpublish articles"
-        deploy_to_repos(hugo_dir, repo_source, repo_pages='git@github.com:MciG-ggg/MciG-ggg.github.io.git', commit_msg=commit_msg)
+        deploy_to_repos(hugo_dir, repo_source, repo_pages, commit_msg)
         return
     
     # 处理文件
@@ -455,8 +459,8 @@ def main():
             print_error(f"部署已取消")
             return
         
-        repo_source = 'git@github.com:MciG-ggg/hugo_blog.git'
-        repo_pages = 'git@github.com:MciG-ggg/MciG-ggg.github.io.git'
+        repo_source = config.get('repositories.source.url')
+        repo_pages = config.get('repositories.pages.url')
         deploy_to_repos(hugo_dir, repo_source, repo_pages, commit_msg)
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 from typing import Optional
+from scripts.config_manager import Config
 
 def process_obsidian_images(content: str, source_file: Path, target_dir: Path, source_dir: Optional[Path] = None) -> str:
     """
@@ -17,16 +18,22 @@ def process_obsidian_images(content: str, source_file: Path, target_dir: Path, s
     :param source_dir: 图片源目录
     :return: 处理后的内容
     """
+    config = Config()
+    
     def find_image(image_name: str) -> Optional[Path]:
         """查找图片文件"""
-        # 1. 优先从指定的图片源目录查找
-        image_source_dir = Path('/home/MciG/Documents/Obsidian Vault/zob_source/images')
+        # 1. 从配置的图片源目录查找
+        image_source_dir = Path(config.get('paths.obsidian.images')).expanduser()
         if (image_source_dir / image_name).exists():
             return image_source_dir / image_name
         
         # 2. 从markdown文件所在目录查找
         if (source_file.parent / image_name).exists():
             return source_file.parent / image_name
+            
+        # 3. 从指定的源目录查找
+        if source_dir and (source_dir / image_name).exists():
+            return source_dir / image_name
         
         return None
 
