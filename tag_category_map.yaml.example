@@ -1,0 +1,24 @@
+# 重命名此文件为 tag_category_map.yaml 并填入你的配置
+
+# 标签到分类的映射关系
+# 格式：
+# tag_name: category_name
+# 一个标签只能对应一个分类
+# 一个分类可以对应多个标签
+
+angular: 前端
+docker: 运维
+git: 工具
+GitHub Pages: 教程
+Hugo: 教程
+javascript: 编程
+kubernetes: 运维
+linux: 运维
+python: 编程
+react: 前端
+typescript: 编程
+vim: 工具
+vscode: 工具
+vue: 前端
+博客: 教程
+周记: dairy
