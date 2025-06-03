@@ -1,17 +1,17 @@
-# Hugo Blog Publisher
+# 🚀 Hugo Blog Publisher
 
 一个用于将 Obsidian 笔记转换为 Hugo 博客文章并自动部署的工具。
 
-## 功能特点
+## ✨ 功能特点
 
-- 自动将 Obsidian 笔记转换为 Hugo 文章
-- 智能处理图片资源
-- 自动维护标签和分类映射
-- 支持草稿模式
-- 一键部署到 GitHub Pages
-- 支持预览模式
+- 🔄 自动将 Obsidian 笔记转换为 Hugo 文章
+- 🖼️ 智能处理图片资源
+- 🏷️ 自动维护标签和分类映射
+- 📝 支持草稿模式
+- 🚀 一键部署到 GitHub Pages
+- 👀 支持预览模式
 
-## 项目结构
+## 📁 项目结构
 
 ```
 .
@@ -28,7 +28,7 @@
     └── obsidian_image_handler.py # Obsidian图片转换
 ```
 
-## 安装
+## 📥 安装
 
 1. 克隆仓库：
 ```bash
@@ -47,9 +47,9 @@ cp config.yaml.example config.yaml
 # 编辑 config.yaml 文件，设置你的配置
 ```
 
-## 使用方法
+## 🎮 使用方法
 
-### 基本命令
+### 📌 基本命令
 
 1. 发布文章：
 ```bash
@@ -71,7 +71,7 @@ python hugo_publish_blog.py --unpublish
 python hugo_publish_blog.py --republish
 ```
 
-### 配置说明
+### ⚙️ 配置说明
 
 在 `config.yaml` 中配置以下内容：
 
@@ -89,38 +89,38 @@ images:
   target_dir: "图片目标目录"
 ```
 
-## 开发说明
+## 💻 开发说明
 
-### 核心类
+### 🏗️ 核心类
 
 1. `BlogProcessor`：处理博客发布的核心类
-   - 创建新文章
-   - 处理 Markdown 文件
-   - 管理发布状态
-   - 部署到仓库
+   - 📝 创建新文章
+   - 📄 处理 Markdown 文件
+   - 🔄 管理发布状态
+   - 🚀 部署到仓库
 
 2. `FrontMatter`：管理文章前置数据
-   - 处理 YAML 头部
-   - 管理标签和分类
-   - 提供标准化的数据访问接口
+   - 📋 处理 YAML 头部
+   - 🏷️ 管理标签和分类
+   - 🔧 提供标准化的数据访问接口
 
-### 工作流程
+### 🔄 工作流程
 
 1. 文章处理流程：
-   - 读取 Obsidian 笔记
-   - 提取前置数据
-   - 处理图片资源
-   - 创建 Hugo 文章
+   - 📖 读取 Obsidian 笔记
+   - 📋 提取前置数据
+   - 🖼️ 处理图片资源
+   - 📝 创建 Hugo 文章
 
 2. 部署流程：
-   - 更新源码仓库
-   - 构建 Hugo 站点
-   - 部署到 GitHub Pages
+   - 🔄 更新源码仓库
+   - 🏗️ 构建 Hugo 站点
+   - 🚀 部署到 GitHub Pages
 
-## 贡献
+## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
 
-## 许可证
+## �� 许可证
 
 MIT License
