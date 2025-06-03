@@ -115,7 +115,91 @@ images:
 2. 部署流程：
    - 🔄 更新源码仓库
    - 🏗️ 构建 Hugo 站点
-   - 🚀 部署到 GitHub Pages
+   - �� 部署到 GitHub Pages
+
+### 📊 流程图
+
+#### 文章处理流程
+
+{{< mermaid >}}
+sequenceDiagram
+    participant U as 用户
+    participant BP as BlogProcessor
+    participant FM as FrontMatter
+    participant IH as ImageHandler
+    participant H as Hugo
+    participant G as Git仓库
+
+    U->>BP: 执行发布命令
+    BP->>FM: 提取YAML和内容
+    FM->>FM: 处理前置数据
+    BP->>IH: 处理图片
+    IH->>IH: 复制并重命名图片
+    BP->>BP: 创建Hugo文章
+    BP->>H: 构建站点
+    BP->>G: 推送源码
+    BP->>G: 部署页面
+    G-->>U: 返回部署结果
+{{< /mermaid >}}
+
+#### 部署流程
+
+{{< mermaid >}}
+graph TD
+    A[开始部署] --> B[更新源码仓库]
+    B --> C[构建Hugo站点]
+    C --> D[部署到GitHub Pages]
+    D --> E[结束]
+    
+    B --> B1[Git操作]
+    B1 --> B2[提交更改]
+    B2 --> B3[推送到源码仓库]
+    
+    C --> C1[生成静态文件]
+    C1 --> C2[优化资源]
+    
+    D --> D1[初始化Pages仓库]
+    D1 --> D2[提交更改]
+    D2 --> D3[强制推送到Pages]
+{{< /mermaid >}}
+
+#### 类关系图
+
+{{< mermaid >}}
+classDiagram
+    class BlogProcessor {
+        +source_dir: Path
+        +hugo_dir: Path
+        +create_new_post()
+        +process_markdown_files()
+        +list_published_markdowns()
+        +set_publish_false()
+        +unpublish_article()
+        +preview_site()
+        +deploy_to_repos()
+    }
+    
+    class FrontMatter {
+        +data: dict
+        +title: str
+        +date: str
+        +tags: list
+        +categories: list
+        +draft: bool
+        +publish: bool
+        +to_dict()
+        +update()
+    }
+    
+    class ImageHandler {
+        +process_obsidian_images()
+        +copy_image()
+        +update_links()
+    }
+    
+    BlogProcessor --> FrontMatter : 使用
+    BlogProcessor --> ImageHandler : 使用
+{{< /mermaid >}}
 
 ## 🤝 贡献
 
