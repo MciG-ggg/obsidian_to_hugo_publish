@@ -55,7 +55,7 @@ def print_header(message):
 class BlogProcessor:
     """博客处理类，负责处理博客相关的具体操作"""
     
-    def __init__(self, source_dir, hugo_dir, config_path):
+    def __init__(self, source_dir, hugo_dir, config_path = 'config.yaml'):
         self.source_dir = Path(source_dir)
         self.hugo_dir = Path(hugo_dir)
         self.api_handler = APIHandler(config_path)
@@ -90,6 +90,24 @@ class BlogProcessor:
             'description': summary or f'Content from {title}',
             'draft': draft,
         })
+        first_image = None
+        # 匹配两种格式的图片
+        img_patterns = [
+            r'!\[([^\]]*)\]\(([^)]+)\)',  # ![alt](image.jpg)
+            r'!\[\[([^]]+)\]\]'  # ![[image.jpg]]
+        ]
+        for pattern in img_patterns:
+            matches = re.finditer(pattern, content)
+            for match in matches:
+                if pattern == r'!\[\[([^]]+)\]\]':
+                    img_name = match.group(1)
+                else:
+                    img_name = match.group(2)
+                first_image = img_name
+                break
+            if first_image:
+                break
+        front_matter.update({'image': first_image if first_image else ''})
         
         # 处理标签和分类
         tag_mapping = load_tag_category_mapping()
@@ -123,7 +141,6 @@ class BlogProcessor:
                 
             front_matter, content = extract_yaml_and_content(md_file)
             if not front_matter or not front_matter.publish:
-                print_warning(f"跳过 {md_file.name} - 未标记为发布状态")
                 continue
             
             try:

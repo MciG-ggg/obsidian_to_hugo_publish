@@ -63,7 +63,7 @@ def process_obsidian_images(content: str, source_file: Path, target_dir: Path, s
             image_name = match.group(2)
 
         # 清理图片名称
-        image_name = image_name.split('#')[0].split('?')[0].replace('%20', ' ')
+        image_name = image_name.split('#')[0].split('?')[0].replace('%20', ' ').replace('-', ' ')
         
         # 查找并复制图片
         image_path = find_image(image_name)
