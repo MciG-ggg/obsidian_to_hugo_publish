@@ -11,6 +11,7 @@ from scripts.front_matter import (
     get_categories_from_tags,
     update_tag_category_mapping
 )
+from scripts.api_handler import APIHandler
 
 # ANSI 颜色代码
 COLOR_GREEN = "\033[92m"    # 成功信息
@@ -54,9 +55,10 @@ def print_header(message):
 class BlogProcessor:
     """博客处理类，负责处理博客相关的具体操作"""
     
-    def __init__(self, source_dir, hugo_dir):
+    def __init__(self, source_dir, hugo_dir, config_path):
         self.source_dir = Path(source_dir)
         self.hugo_dir = Path(hugo_dir)
+        self.api_handler = APIHandler(config_path)
     
     def process_mermaid_blocks(self, content):
         """将```mermaid代码块转换为Hugo短代码格式"""
@@ -78,11 +80,14 @@ class BlogProcessor:
         # 处理Mermaid代码块
         content = self.process_mermaid_blocks(content)
         
+        # 生成摘要
+        summary = self.api_handler.generate_summary(content)
+        
         # 准备YAML前置数据
         front_matter = FrontMatter({
             'title': title,
             'date': datetime.now().strftime('%Y-%m-%d'),
-            'description': f'Content from {title}',
+            'description': summary or f'Content from {title}',
             'draft': draft,
         })
         
