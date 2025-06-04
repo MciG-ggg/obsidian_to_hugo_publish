@@ -44,3 +44,10 @@ deployment:
   backup: false          # 是否在部署前备份
   check_links: false    # 是否检查链接
   minify: true         # 是否压缩HTML/CSS/JS
+
+# API配置
+api:
+  deepseek:
+    api_key: "your-deepseek-api-key-here"  # DeepSeek API密钥
+    base_url: "https://api.deepseek.com"   # API基础URL
+    model: "deepseek-chat"                 # 使用的模型名称
