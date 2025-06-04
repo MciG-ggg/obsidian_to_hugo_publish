@@ -3,10 +3,16 @@ from pathlib import Path
 from openai import OpenAI
 import logging
 
+# 定义颜色常量
+COLOR_GREEN = '\033[92m'
+COLOR_CYAN = '\033[96m'
+COLOR_RED = '\033[91m'
+COLOR_RESET = '\033[0m'
+
 class APIHandler:
     """处理API调用的类"""
     
-    def __init__(self, config_path):
+    def __init__(self, config_path = 'config.yaml'):
         self.config = self._load_config(config_path)
         self.client = self._init_client()
         self.prompt_template = self._load_prompt_template()
@@ -36,6 +42,8 @@ class APIHandler:
     def generate_summary(self, content):
         """生成博客摘要"""
         try:
+            print(f"\n{COLOR_CYAN}正在调用 DeepSeek API 生成摘要...{COLOR_RESET}")
+            
             # 准备prompt
             prompt = self.prompt_template.replace('{{content}}', content)
             
@@ -51,8 +59,10 @@ class APIHandler:
             
             # 获取摘要
             summary = response.choices[0].message.content.strip()
+            print(f"{COLOR_GREEN}摘要生成成功！{COLOR_RESET}")
             return summary
             
         except Exception as e:
+            print(f"{COLOR_RED}生成摘要时出错: {str(e)}{COLOR_RESET}")
             logging.error(f"生成摘要时出错: {str(e)}")
             return None 
