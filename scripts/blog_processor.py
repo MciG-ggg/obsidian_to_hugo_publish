@@ -80,16 +80,21 @@ class BlogProcessor:
         # 处理Mermaid代码块
         content = self.process_mermaid_blocks(content)
         
-        # 生成摘要
-        summary = self.api_handler.generate_summary(content)
-        
         # 准备YAML前置数据
         front_matter = FrontMatter({
             'title': title,
             'date': datetime.now().strftime('%Y-%m-%d'),
-            'description': summary or f'Content from {title}',
             'draft': draft,
         })
+
+        # 检查是否已有description
+        if front_matter.description:
+            print_info(f"使用已有的描述: {front_matter.description}")
+        else:
+            # 生成摘要
+            summary = self.api_handler.generate_summary(content)
+            front_matter.update({'description': summary or f'Content from {title}'})
+
         first_image = None
         # 匹配两种格式的图片
         img_patterns = [
