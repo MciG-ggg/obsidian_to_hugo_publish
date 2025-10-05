@@ -5,7 +5,7 @@ __pycache__/
 .Python
 env/
 # 配置文件
-*.yaml
+config.yaml
 .env
 *.env
 
@@ -33,6 +33,9 @@ var/
 venv/
 ENV/
 .DS_Store
+*.md
+!README.md
+logs/
 
 # 本地配置文件
 config.yaml
