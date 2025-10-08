@@ -182,6 +182,65 @@ def print_progress_bar(current: int, total: int, bar_length: int = 50, status: s
         print()  # 换行
 
 
+class ProgressTracker:
+    """
+    进度跟踪器，用于管理嵌套任务的进度
+    Progress tracker for managing nested task progress
+    """
+    def __init__(self, total_tasks: int, description: str = "Overall Progress"):
+        self.total_tasks = total_tasks
+        self.description = description
+        self.completed_tasks = 0
+        
+    def start_task(self, task_name: str) -> None:
+        """开始一个任务"""
+        self.completed_tasks += 1
+        percent = (self.completed_tasks / self.total_tasks) * 100
+        status = f"[{self.completed_tasks}/{self.total_tasks}] {task_name}"
+        print_progress_bar(self.completed_tasks, self.total_tasks, status=status)
+        
+    def update_task(self, task_name: str, current: int, total: int) -> None:
+        """更新当前任务的内部进度"""
+        # 这里我们可以显示更详细的当前任务进度
+        task_progress = f"{task_name} ({current}/{total})"
+        overall_progress = (self.completed_tasks / self.total_tasks) * 100
+        # 仅显示当前任务的进度，不改变整体进度
+        print_progress_bar(current, total, bar_length=30, status=task_progress)
+
+
+def print_task_header(task_name: str, description: str = "") -> None:
+    """
+    打印任务头信息
+    Print task header information
+    """
+    task_header = f"\n{CLIColors.BOLD}{CLIColors.MAGENTA}{'='*20} {task_name} {'='*20}{CLIColors.RESET}"
+    print(task_header)
+    if description:
+        print(f"{CLIColors.DIM}{description}{CLIColors.RESET}")
+
+
+def print_subtask_status(subtask_name: str, status: str, details: str = "") -> None:
+    """
+    打印子任务状态
+    Print subtask status
+    """
+    status_indicator = {
+        "pending": f"{CLIColors.BLUE}⏳{CLIColors.RESET}",
+        "success": f"{CLIColors.GREEN}✓{CLIColors.RESET}",
+        "error": f"{CLIColors.RED}✗{CLIColors.RESET}",
+        "warning": f"{CLIColors.YELLOW}⚠{CLIColors.RESET}",
+        "info": f"{CLIColors.CYAN}ℹ{CLIColors.RESET}"
+    }
+    
+    indicator = status_indicator.get(status, status_indicator["info"])
+    output = f"  {indicator} {CLIColors.BOLD}{subtask_name}{CLIColors.RESET}"
+    
+    if details:
+        output += f" - {details}"
+    
+    print(output)
+
+
 def get_user_choice(options: List[str], prompt: str = None) -> Tuple[Optional[int], Optional[str]]:
     """
     获取用户从多个选项中的选择

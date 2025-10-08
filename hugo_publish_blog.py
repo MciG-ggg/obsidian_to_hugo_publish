@@ -19,7 +19,7 @@ sys.path.insert(0, str(src_dir))
 
 from src.core.config_manager import Config
 from src.core.blog_processor import BlogProcessor
-from src.utils.cli_utils import print_step, print_success, print_error, print_warning, print_info, print_header
+from src.utils.cli_utils import print_step, print_success, print_error, print_warning, print_info, print_header, print_task_header, print_subtask_status
 from src.i18n.i18n import set_locale, t
 from src.utils import set_log_file, set_log_level
 
@@ -244,7 +244,10 @@ def main():
             # 创建博客处理器实例
             processor = BlogProcessor(source_dir, hugo_dir)
             
+            print_task_header(t("start_preview_header"), t("preview_process_description"))
+            
             try:
+                print_info(t("starting_preview_info"))
                 processor.preview_site()
             except Exception as e:
                 print_error(t("preview_error", error=str(e)))
@@ -268,7 +271,7 @@ def main():
             output_format = args.output_format
             
             # 重新发布流程
-            print_header(t("start_republish_header"))
+            print_task_header(t("start_republish_header"), t("republish_process_description"))
             try:
                 published = processor.list_published_markdowns()
             except Exception as e:
@@ -279,19 +282,57 @@ def main():
                 print_warning(t("no_published_articles"))
                 return
 
+            # 计算总任务数 (取消发布 + 重新发布 + 部署)
+            total_tasks = len(published) + 1 + 1  # 每篇文章的取消发布算一个任务
+            from src.utils.cli_utils import ProgressTracker
+            progress_tracker = ProgressTracker(total_tasks, t("republish_progress_description"))
+
             print_step(1, t("unpublish_all_step"))
-            for md_file, _ in published:
+            unpublished_count = 0
+            for idx, (md_file, _) in enumerate(published):
                 article_name = Path(md_file).stem
                 try:
                     if processor.unpublish_article(article_name):
-                        print_success(t("unpublished_success", article_name=article_name))
+                        print_subtask_status(
+                            t("unpublish_article_task", article=article_name),
+                            "success",
+                            t("completed_status")
+                        )
+                        unpublished_count += 1
+                    else:
+                        print_subtask_status(
+                            t("unpublish_article_task", article=article_name), 
+                            "warning",
+                            t("not_found_status")
+                        )
                 except Exception as e:
-                    print_error(t("process_file_error", md_file_name=article_name, error=str(e)))
+                    print_subtask_status(
+                        t("unpublish_article_task", article=article_name),
+                        "error",
+                        str(e)
+                    )
                     continue
+                progress_tracker.start_task(t("unpublish_article_task", article=article_name))
 
             print_step(2, t("republish_all_step"))
             try:
-                processed_files = processor.process_markdown_files(as_draft=args.draft)
+                print_info(t("processing_articles_info", count=len(published)))
+                
+                # 创建一个简单的进度回调函数
+                def progress_callback(current, total):
+                    progress_tracker.update_task(
+                        t("processing_articles_task"), 
+                        current, 
+                        total
+                    )
+                
+                # 修改 process_markdown_files 以支持进度回调
+                processed_files = processor.process_markdown_files(
+                    as_draft=args.draft, 
+                    progress_callback=progress_callback
+                )
+                progress_tracker.start_task(t("publish_articles_task"))
+                
             except Exception as e:
                 print_error(t("process_file_error", md_file_name="files", error=str(e)))
                 return
@@ -319,6 +360,11 @@ def main():
                 print_formatted_output(result, "json")
             else:
                 print_success(t("process_files_success", count=len(processed_files)))
+                print_subtask_status(
+                    t("publish_articles_task"),
+                    "success",
+                    t("published_count_info", count=len(processed_files))
+                )
 
             print_step(3, t("deploy_step"))
             commit_msg = t("start_republish_header")
@@ -331,6 +377,7 @@ def main():
                 return
                 
             try:
+                print_info(t("starting_deployment_info"))
                 if processor.deploy_to_repos(repo_source, repo_pages, commit_msg):
                     if output_format == "json":
                         from src.utils import print_formatted_output
@@ -340,8 +387,19 @@ def main():
                         }
                         print_formatted_output(result, "json")
                     else:
+                        print_subtask_status(
+                            t("deployment_task"),
+                            "success",
+                            t("deployment_completed_info")
+                        )
                         print_success(t("republish_success"))
+                progress_tracker.start_task(t("deployment_task"))
             except Exception as e:
+                print_subtask_status(
+                    t("deployment_task"), 
+                    "error", 
+                    str(e)
+                )
                 print_error(t("deployment_failed", error=str(e)))
                 return
         elif args.command == 'unpublish':
@@ -363,6 +421,8 @@ def main():
             output_format = args.output_format
             
             # 取消发布流程
+            print_task_header(t("start_unpublish_header"), t("unpublish_process_description"))
+            
             try:
                 published = processor.list_published_markdowns()
             except Exception as e:
@@ -373,7 +433,7 @@ def main():
                 print_warning(t("no_articles_to_unpublish"))
                 return
                 
-            print(f"{CLIColors.YELLOW}{t('published_list_header')}{CLIColors.RESET}")
+            print_subtask_status(t("list_published_articles_task"), "info", t("found_count_info", count=len(published)))
             for idx, (md_file, yaml_data) in enumerate(published):
                 print(f"[{idx}] {md_file}")
             
@@ -401,9 +461,19 @@ def main():
                 try:
                     processor.set_publish_false(md_file)
                     article_name = Path(md_file).stem
-                    processor.unpublish_article(article_name)
+                    success = processor.unpublish_article(article_name)
+                    if success:
+                        print_subtask_status(
+                            t("unpublish_article_task", article=article_name),
+                            "success",
+                            t("completed_status")
+                        )
                 except Exception as e:
-                    print_error(t("process_file_error", md_file_name=md_file.name, error=str(e)))
+                    print_subtask_status(
+                        t("unpublish_article_task", article=article_name),
+                        "error", 
+                        str(e)
+                    )
                     continue
 
             print(f"{CLIColors.YELLOW}{t('push_to_remote')}{CLIColors.RESET}")
@@ -421,7 +491,14 @@ def main():
                 return
                 
             try:
-                processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
+                print_info(t("starting_deployment_info"))
+                success = processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
+                if success:
+                    print_subtask_status(
+                        t("deployment_task"),
+                        "success",
+                        t("deployment_completed_info")
+                    )
             except Exception as e:
                 print_error(t("deployment_failed", error=str(e)))
                 return
@@ -446,6 +523,8 @@ def main():
             # 正常发布流程
             selected_files = args.files
 
+            print_task_header(t("start_publish_header"), t("publish_process_description"))
+            
             # 如果使用了 --select 参数，让用户选择文章
             if args.select:
                 try:
@@ -461,6 +540,7 @@ def main():
 
             # 处理文件
             try:
+                print_info(t("processing_articles_info", count=len(selected_files) if selected_files else "all"))
                 processed_files = processor.process_markdown_files(selected_files, as_draft=args.draft)
             except Exception as e:
                 print_error(t("process_file_error", md_file_name="files", error=str(e)))
@@ -489,6 +569,11 @@ def main():
                 print_formatted_output(result, "json")
             else:
                 print_success(t("process_files_success", count=len(processed_files)))
+                print_subtask_status(
+                    t("publish_articles_task"),
+                    "success",
+                    t("published_count_info", count=len(processed_files))
+                )
 
             # Deploy to repositories
             should_deploy = True
@@ -556,7 +641,14 @@ def main():
                     return
                     
                 try:
-                    processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
+                    print_info(t("starting_deployment_info"))
+                    success = processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
+                    if success:
+                        print_subtask_status(
+                            t("deployment_task"),
+                            "success",
+                            t("deployment_completed_info")
+                        )
                 except Exception as e:
                     print_error(t("deployment_failed", error=str(e)))
                     return

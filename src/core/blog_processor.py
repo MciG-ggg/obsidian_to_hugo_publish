@@ -127,7 +127,7 @@ class BlogProcessor:
             print_error(t("process_file_error", md_file_name=title, error=str(e)))
             raise
     
-    def process_markdown_files(self, selected_files=None, as_draft=False):
+    def process_markdown_files(self, selected_files=None, as_draft=False, progress_callback=None):
         """处理Markdown文件并创建Hugo博客文章"""
         processed_files = []
         
@@ -175,6 +175,10 @@ class BlogProcessor:
                 for result in results:
                     if result is not None:
                         processed_files.append(result)
+                    
+                # 调用进度回调
+                if progress_callback:
+                    progress_callback(len(results), len(results))
                     
         except Exception as e:
             print_error(t("processing_markdown_error", error=str(e)))

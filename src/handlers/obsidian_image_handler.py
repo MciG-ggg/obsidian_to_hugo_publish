@@ -84,7 +84,7 @@ def process_single_image_with_target_dir(args: Tuple[str, str, Path, Path, Path,
     # 清理图片名称用于查找（移除URL参数等）
     clean_image_name = image_name.split('#')[0].split('?')[0]
     
-    print(f"正在处理图片: 原始名称={original_image_name}, 清理后名称={clean_image_name}, 目标目录={target_dir}")
+    from src.utils.cli_utils import print_subtask_status
     
     # 首先尝试使用清理后的名称进行查找
     image_path = find_image(clean_image_name, source_file, source_dir)
@@ -92,29 +92,37 @@ def process_single_image_with_target_dir(args: Tuple[str, str, Path, Path, Path,
     # 如果没找到，尝试不同的变体（如将连字符替换为空格）
     if not image_path:
         variant_name = clean_image_name.replace('-', ' ')
-        print(f"未找到图片 {clean_image_name}，尝试变体 {variant_name}")
         image_path = find_image(variant_name, source_file, source_dir)
     
     # 如果还没找到，尝试将空格替换为连字符
     if not image_path:
         variant_name = clean_image_name.replace(' ', '-')
-        print(f"仍未找到，尝试变体 {variant_name}")
         image_path = find_image(variant_name, source_file, source_dir)
     
     if not image_path:
-        print(f"警告: 找不到图片 {clean_image_name}，或其变体（{clean_image_name.replace('-', ' ')} 或 {clean_image_name.replace(' ', '-')})")
+        print_subtask_status(
+            f"处理图片: {original_image_name}",
+            "error",
+            f"找不到图片 {clean_image_name}，或其变体"
+        )
         return original
-        
-    print(f"找到图片: {image_path}")
         
     # 使用传入的目标目录
     new_name = copy_image(image_path, target_dir)
     
     if not new_name:
-        print(f"警告: 无法复制图片 {clean_image_name}")
+        print_subtask_status(
+            f"处理图片: {original_image_name}",
+            "error",
+            f"无法复制图片 {clean_image_name}"
+        )
         return original
         
-    print(f"成功复制图片为: {new_name}")
+    print_subtask_status(
+        f"处理图片: {original_image_name}",
+        "success",
+        f"已复制为 {new_name}"
+    )
         
     # 返回标准Markdown格式的图片链接，直接引用图片文件（在文章目录中）
     return f"![{alt_text}]({new_name})"
@@ -161,7 +169,12 @@ def process_obsidian_images(content: str, source_file: Path, target_dir: Path, s
     
     # 并行处理所有图片
     if image_matches:
-        print(f"找到 {len(image_matches)} 个图片引用需要处理")
+        from src.utils.cli_utils import print_subtask_status
+        print_subtask_status(
+            f"处理图片引用",
+            "info",
+            f"找到 {len(image_matches)} 个图片引用需要处理"
+        )
         processed_results = parallel_process(image_matches, process_single_image_with_target_dir, max_workers=4)
         
         # 替换原内容中的图片链接
