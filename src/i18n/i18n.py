@@ -31,8 +31,8 @@ class I18n:
         """
         加载翻译文件
         """
-        # 确定翻译文件路径
-        i18n_dir = Path(__file__).parent.parent / 'i18n'
+        # 确定翻译文件路径 - look in the translations subdirectory
+        i18n_dir = Path(__file__).parent / 'translations'
         
         # 加载当前语言的翻译
         locale_file = i18n_dir / f'{self.locale}.json'

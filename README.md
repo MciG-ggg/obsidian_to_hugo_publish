@@ -23,17 +23,23 @@
 ### 基本用法
 
 ```bash
+# 查看所有可用命令
+python hugo_publish_blog.py --help
+
+# 发布文章
+python hugo_publish_blog.py publish
+
 # 发布所有已标记为 publish: true 的文章
-python hugo_publish_blog.py
+python hugo_publish_blog.py publish
 
 # 发布特定文件
-python hugo_publish_blog.py --files article1.md article2.md
+python hugo_publish_blog.py publish --files article1.md article2.md
 
 # 以草稿模式发布
-python hugo_publish_blog.py --draft
+python hugo_publish_blog.py publish --draft
 
-# 预览模式（启动 Hugo 服务器）
-python hugo_publish_blog.py --preview
+# 交互式选择文章发布
+python hugo_publish_blog.py publish --select
 ```
 
 ### 新增：交互式选择功能
@@ -41,7 +47,7 @@ python hugo_publish_blog.py --preview
 使用 `--select` 参数可以交互式地选择要发布的文章：
 
 ```bash
-python hugo_publish_blog.py --select
+python hugo_publish_blog.py publish --select
 ```
 
 这将显示所有可发布的文章列表，包括：
@@ -53,20 +59,27 @@ python hugo_publish_blog.py --select
 然后你可以：
 - 输入单个数字选择特定文章（如：`0`）
 - 输入多个数字用逗号分隔（如：`0,2,5`）
+- 输入数字范围（如：`1-3` 选中第1-3篇文章）
 - 输入 `all` 选择所有文章
 - 留空取消操作
 
 ### 其他功能
 
 ```bash
+# 预览模式（启动 Hugo 服务器）
+python hugo_publish_blog.py preview
+
 # 取消发布文章
-python hugo_publish_blog.py --unpublish
+python hugo_publish_blog.py unpublish
 
 # 重新发布所有文章
-python hugo_publish_blog.py --republish
+python hugo_publish_blog.py republish
 
 # 指定源目录和 Hugo 目录
-python hugo_publish_blog.py --source /path/to/source --hugo-dir /path/to/hugo
+python hugo_publish_blog.py publish --source /path/to/source --hugo-dir /path/to/hugo
+
+# 输出为 JSON 格式（便于脚本处理）
+python hugo_publish_blog.py publish --output-format json
 ```
 
 ## 配置
@@ -113,35 +126,36 @@ draft: false
 
 ```
 ├── hugo_publish_blog.py          # 主程序入口
-├── config.yaml                   # 配置文件
-├── config.yaml.example          # 配置文件示例
-├── requirements.txt             # 依赖包列表
-├── USER_GUIDE.md               # 用户使用文档
-├── TODOs.md                    # 待办事项
-├── QWEN.md                     # 项目总结
-├── src/                        # 源代码目录
-│   ├── core/                   # 核心模块
-│   │   ├── blog_processor.py   # 博客处理
-│   │   ├── config_manager.py   # 配置管理
-│   │   └── front_matter.py     # 前端数据处理
-│   ├── utils/                  # 工具模块
-│   │   ├── utils.py           # 通用工具函数
-│   │   ├── logger.py          # 日志模块
-│   │   └── parallel.py        # 幷行处理模块
-│   ├── i18n/                  # 国际化模块
-│   │   ├── i18n.py           # 国际化功能
-│   │   └── translations/     # 翻译文件
-│   │       ├── zh-CN.json    # 中文翻译
-│   │       └── en.json       # 英文翻译
-│   └── handlers/              # 处理器模块
-│       └── obsidian_image_handler.py  # Obsidian图片处理
-├── docs/                      # 文档目录
-│   ├── DEVELOPMENT.md         # 开发文档
-│   └── API.md                # API文档
-└── tests/                     # 测试目录
-    ├── unit/                 # 单元测试
-    ├── integration/          # 集成测试
-    └── e2e/                 # 端到端测试
+├── config.yaml.example           # 配置文件示例
+├── tag_category_map.yaml.example # 标签分类映射示例
+├── upload_image_to_blog.py       # 图片上传脚本（兼容性包装器）
+├── config.yaml                   # 配置文件（需自行创建）
+├── tag_category_mapping.yaml     # 标签分类映射文件（需自行创建）
+├── requirements.txt              # 依赖包列表
+├── README.md                     # 项目说明
+├── LICENSE                       # 许可证文件
+├── src/                          # 源代码目录
+│   ├── __init__.py
+│   ├── core/                     # 核心模块
+│   │   ├── config_manager.py     # 配置管理
+│   │   ├── blog_processor.py     # 博客处理
+│   │   └── front_matter.py       # 前端数据处理
+│   ├── handlers/                 # 处理器模块
+│   │   └── obsidian_image_handler.py  # Obsidian图片处理
+│   ├── i18n/                     # 国际化模块
+│   │   ├── i18n.py              # 国际化功能
+│   │   ├── zh-CN.json           # 中文翻译
+│   │   └── en.json              # 英文翻译
+│   └── utils/                    # 工具模块
+│       ├── cli_utils.py         # 命令行工具
+│       ├── logger.py            # 日志模块
+│       └── utils.py             # 通用工具函数
+├── docs/                         # 文档目录
+│   ├── DEVELOPMENT.md           # 开发文档
+│   ├── API.md                  # API文档
+│   └── IMAGE_UPLOAD_GUIDE.md   # 图片上传指南
+├── tests/                        # 测试目录
+└── venv/                         # Python虚拟环境（如果已创建）
 ```
 
 ## 许可证

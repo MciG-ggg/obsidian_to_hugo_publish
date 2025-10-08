@@ -64,7 +64,14 @@ class FrontMatter:
     @property
     def publish(self):
         """获取发布状态"""
-        return self._data.get('publish', False)
+        value = self._data.get('publish', False)
+        # Convert string "true"/"false" to boolean
+        if isinstance(value, str):
+            if value.lower() in ('true', '1', 'yes', 'on'):
+                return True
+            elif value.lower() in ('false', '0', 'no', 'off'):
+                return False
+        return bool(value)
     
     @property
     def description(self):

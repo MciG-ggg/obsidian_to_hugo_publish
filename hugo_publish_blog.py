@@ -6,7 +6,11 @@ from pathlib import Path
 import subprocess
 import sys
 import os
-from src.utils.utils import ( COLOR_BOLD, COLOR_RESET, COLOR_DIM, COLOR_YELLOW)
+from src.utils.cli_utils import CLIColors
+
+# 全局变量
+output_format = "default"
+cli_args = None
 
 # 添加src目录到Python路径
 current_dir = Path(__file__).resolve().parent
@@ -15,9 +19,9 @@ sys.path.insert(0, str(src_dir))
 
 from src.core.config_manager import Config
 from src.core.blog_processor import BlogProcessor
-from src.utils.utils import print_step, print_success, print_error, print_warning, print_info, print_header
+from src.utils.cli_utils import print_step, print_success, print_error, print_warning, print_info, print_header
 from src.i18n.i18n import set_locale, t
-from src.utils.logger import set_log_file, set_log_level
+from src.utils import set_log_file, set_log_level
 
 def select_articles_to_publish(processor):
     """让用户选择要发布的文章"""
@@ -28,16 +32,16 @@ def select_articles_to_publish(processor):
     print_header(t("start_republish_header"))
     for idx, (md_file, yaml_data) in enumerate(published):
         title = yaml_data.title if yaml_data.title else md_file.stem
-        description = yaml_data.description if yaml_data.description else t("no_description", description="无描述")  # 如果翻译文件中没有这个键，就使用中文
-        print(f"{COLOR_BOLD}[{idx}]{COLOR_RESET} {title}")
-        print(f"    {COLOR_DIM}{t('file_label', filename=md_file.name)}{COLOR_RESET}")  # 需要在翻译文件中添加file_label
-        print(f"    {COLOR_DIM}{t('description_label', description=description)}{COLOR_RESET}")  # 需要在翻译文件中添加description_label
+        description = yaml_data.description if yaml_data.description else t("no_description_fallback")
+        print(f"{CLIColors.BOLD}[{idx}]{CLIColors.RESET} {title}")
+        print(f"    {CLIColors.DIM}{t('file_label', filename=md_file.name)}{CLIColors.RESET}")  # 需要在翻译文件中添加file_label
+        print(f"    {CLIColors.DIM}{t('description_label', description=description)}{CLIColors.RESET}")  # 需要在翻译文件中添加description_label
         if yaml_data.tags:
-            print(f"    {COLOR_DIM}{t('tags_label', tags=', '.join(yaml_data.tags))}{COLOR_RESET}")  # 需要在翻译文件中添加tags_label
+            print(f"    {CLIColors.DIM}{t('tags_label', tags=', '.join(yaml_data.tags))}{CLIColors.RESET}")  # 需要在翻译文件中添加tags_label
         print()
 
     while True:
-        selection = input(f"{COLOR_YELLOW}{t('select_article_prompt')}{COLOR_RESET}").strip()  # 需要在翻译文件中添加select_article_prompt
+        selection = input(f"{CLIColors.YELLOW}{t('select_article_prompt')}{CLIColors.RESET}").strip()  # 需要在翻译文件中添加select_article_prompt
 
         if not selection:
             print_warning(t("no_selection_cancel"))
@@ -66,7 +70,7 @@ def select_articles_to_publish(processor):
                 print_error(t("no_valid_indices"))
                 continue
 
-            selected_files = [published[idx][0] for idx in selected_indices]
+            selected_files = [published[idx][0].name for idx in selected_indices]
             print_success(t("selected_count", count=len(selected_files)))  # 需要在翻译文件中添加selected_count
             return selected_files
 
@@ -74,39 +78,135 @@ def select_articles_to_publish(processor):
             print_error(t("input_format_error"))
 
 def main():
+    global output_format, cli_args
+    
     try:
         config = Config()
 
-        parser = argparse.ArgumentParser(description='将Markdown文件发布到Hugo博客')  # 这个可以本地化，但argparse的description通常不国际化
-        parser.add_argument('--source',
-                           default=config.get('paths.obsidian.vault'),
-                           help='包含markdown文件的源目录')
-        parser.add_argument('--hugo-dir',
-                           default=config.get('paths.hugo.blog'),
-                           help='Hugo博客目录')
-        parser.add_argument('--files',
-                           nargs='*',
-                           help='要处理的特定markdown文件（可选）')
-        parser.add_argument('--unpublish', action='store_true', help='取消发布模式')
-        parser.add_argument('--preview', action='store_true', help='预览模式，启动Hugo服务器')
-        parser.add_argument('--draft', action='store_true', help='以草稿模式发布文章')
-        parser.add_argument('--republish', action='store_true', help='取消所有发布的文章并重新发布')
-        parser.add_argument('--select', action='store_true', help='交互式选择要发布的文章')
+        # Validate required config values exist
+        try:
+            source_default = config.get('paths.obsidian.vault')
+            if not source_default:
+                print_error(t("config_missing_source_path"))
+                return
+            hugo_default = config.get('paths.hugo.blog')
+            if not hugo_default:
+                print_error(t("config_missing_hugo_path"))
+                return
+        except Exception as e:
+            print_error(t("config_load_error", error=str(e)))
+            return
+
+        # Create the main parser with subcommands
+        parser = argparse.ArgumentParser(
+            prog='hugo-publish',
+            description=t('cli_description'),
+            epilog=t('cli_epilog'),
+            formatter_class=argparse.RawDescriptionHelpFormatter
+        )
         parser.add_argument('--lang', 
                            default=os.getenv('LANG', 'zh-CN').split('.')[0].replace('_', '-'), 
                            choices=['zh-CN', 'en'], 
-                           help='设置语言 (默认: 从环境变量LANG获取)')
+                           help=t('cli_lang_help'))
         parser.add_argument('--log-file',
-                           help='指定日志文件路径')
+                           help=t('cli_log_file_help'))
         parser.add_argument('--log-level',
                            default='INFO',
                            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
-                           help='设置日志级别 (默认: INFO)')
+                           help=t('cli_log_level_help'))
+        parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {t("version")}')
+        
+        # Add subparsers for different commands
+        subparsers = parser.add_subparsers(dest='command', help=t('subcommands_help'))
+        
+        # Publish command
+        publish_parser = subparsers.add_parser('publish', help=t('publish_command_help'))
+        publish_parser.add_argument('--source',
+                                   default=source_default,
+                                   help=t('cli_source_help'))
+        publish_parser.add_argument('--hugo-dir',
+                                   default=hugo_default,
+                                   help=t('cli_hugo_dir_help'))
+        publish_parser.add_argument('--files',
+                                   nargs='*',
+                                   help=t('cli_files_help'))
+        publish_parser.add_argument('--draft', action='store_true', help=t('cli_draft_help'))
+        publish_parser.add_argument('--select', action='store_true', help=t('cli_select_help'))
+        publish_parser.add_argument('--output-format',
+                                   default='default',
+                                   choices=['default', 'json', 'table'],
+                                   help=t('cli_output_format_help'))
+        publish_parser.add_argument('--no-interactive',
+                                   action='store_true',
+                                   help=t('cli_no_interactive_help'))
+        
+        # Unpublish command
+        unpublish_parser = subparsers.add_parser('unpublish', help=t('unpublish_command_help'))
+        unpublish_parser.add_argument('--source',
+                                     default=source_default,
+                                     help=t('cli_source_help'))
+        unpublish_parser.add_argument('--hugo-dir',
+                                     default=hugo_default,
+                                     help=t('cli_hugo_dir_help'))
+        unpublish_parser.add_argument('--output-format',
+                                     default='default',
+                                     choices=['default', 'json', 'table'],
+                                     help=t('cli_output_format_help'))
+        
+        # Preview command
+        preview_parser = subparsers.add_parser('preview', help=t('preview_command_help'))
+        preview_parser.add_argument('--source',
+                                   default=source_default,
+                                   help=t('cli_source_help'))
+        preview_parser.add_argument('--hugo-dir',
+                                   default=hugo_default,
+                                   help=t('cli_hugo_dir_help'))
+        preview_parser.add_argument('--output-format',
+                                   default='default',
+                                   choices=['default', 'json', 'table'],
+                                   help=t('cli_output_format_help'))
+        preview_parser.add_argument('--no-interactive',
+                                   action='store_true',
+                                   help=t('cli_no_interactive_help'))
+        
+        # Republish command
+        republish_parser = subparsers.add_parser('republish', help=t('republish_command_help'))
+        republish_parser.add_argument('--source',
+                                     default=source_default,
+                                     help=t('cli_source_help'))
+        republish_parser.add_argument('--hugo-dir',
+                                     default=hugo_default,
+                                     help=t('cli_hugo_dir_help'))
+        republish_parser.add_argument('--draft', action='store_true', help=t('cli_draft_help'))
+        republish_parser.add_argument('--output-format',
+                                     default='default',
+                                     choices=['default', 'json', 'table'],
+                                     help=t('cli_output_format_help'))
+        republish_parser.add_argument('--no-interactive',
+                                     action='store_true',
+                                     help=t('cli_no_interactive_help'))
 
         args = parser.parse_args()
         
         # 设置语言环境
         set_locale(args.lang)
+        
+        # 检查是否有版本参数，如果有则已经由argparse处理并退出
+        # 根据新的命令行参数设置输出格式等
+        if args.output_format == 'json':
+            # 如果用户选择json格式，我们可以设置一个全局变量或在相关函数中处理
+            pass  # 目前暂时留空，可以后续实现具体处理逻辑
+        
+        # 检查是否使用非交互模式
+        if args.no_interactive and not (args.files or args.preview or args.republish):
+            print_error(t("cli_no_interactive_requires_option"))
+            return
+
+        # 根据输出格式设置全局变量或选项
+        output_format = args.output_format
+        
+        # 保存 args 以便其他函数使用
+        cli_args = args
         
         # 设置日志
         # 优先使用命令行参数，如果未指定则使用配置文件中的设置
@@ -123,27 +223,58 @@ def main():
             log_level = config.get('logging.level', 'INFO')
             set_log_level(log_level)
 
-        source_dir = Path(args.source).expanduser()
-        hugo_dir = Path(args.hugo_dir).expanduser()
-
-        if not source_dir.exists():
-            print_error(t("source_dir_not_exist", source_dir=source_dir))
+        # Check if command was provided
+        if not args.command:
+            parser.print_help()
             return
 
-        if not hugo_dir.exists():
-            print_error(t("hugo_dir_not_exist", hugo_dir=hugo_dir))
-            return
+        # 根据命令执行相应操作
+        if args.command == 'preview':
+            source_dir = Path(args.source).expanduser()
+            hugo_dir = Path(args.hugo_dir).expanduser()
 
-        # 创建博客处理器实例
-        processor = BlogProcessor(source_dir, hugo_dir)
+            if not source_dir.exists():
+                print_error(t("source_dir_not_exist", source_dir=source_dir))
+                return
 
-        # 根据参数执行相应操作
-        if args.preview:
-            processor.preview_site()
-        elif args.republish:
+            if not hugo_dir.exists():
+                print_error(t("hugo_dir_not_exist", hugo_dir=hugo_dir))
+                return
+
+            # 创建博客处理器实例
+            processor = BlogProcessor(source_dir, hugo_dir)
+            
+            try:
+                processor.preview_site()
+            except Exception as e:
+                print_error(t("preview_error", error=str(e)))
+                return
+        elif args.command == 'republish':
+            source_dir = Path(args.source).expanduser()
+            hugo_dir = Path(args.hugo_dir).expanduser()
+
+            if not source_dir.exists():
+                print_error(t("source_dir_not_exist", source_dir=source_dir))
+                return
+
+            if not hugo_dir.exists():
+                print_error(t("hugo_dir_not_exist", hugo_dir=hugo_dir))
+                return
+
+            # 创建博客处理器实例
+            processor = BlogProcessor(source_dir, hugo_dir)
+            
+            # 根据输出格式设置全局变量或选项
+            output_format = args.output_format
+            
             # 重新发布流程
             print_header(t("start_republish_header"))
-            published = processor.list_published_markdowns()
+            try:
+                published = processor.list_published_markdowns()
+            except Exception as e:
+                print_error(t("list_published_error", error=str(e)))
+                return
+                
             if not published:
                 print_warning(t("no_published_articles"))
                 return
@@ -166,41 +297,105 @@ def main():
                 return
 
             if not processed_files:
-                print_warning(t("no_files_processed"))
+                if output_format == "json":
+                    from src.utils import print_formatted_output
+                    result = {
+                        "status": "warning",
+                        "message": t("no_files_processed")
+                    }
+                    print_formatted_output(result, "json")
+                else:
+                    print_warning(t("no_files_processed"))
                 return
 
-            print_success(t("process_files_success", count=len(processed_files)))
+            if output_format == "json":
+                from src.utils import print_formatted_output
+                result = {
+                    "status": "success",
+                    "message": t("process_files_success", count=len(processed_files)),
+                    "processed_count": len(processed_files),
+                    "files": processed_files
+                }
+                print_formatted_output(result, "json")
+            else:
+                print_success(t("process_files_success", count=len(processed_files)))
 
             print_step(3, t("deploy_step"))
             commit_msg = t("start_republish_header")
+            
+            # Validate repository URLs
             repo_source = config.get('repositories.source.url')
             repo_pages = config.get('repositories.pages.url')
-            if processor.deploy_to_repos(repo_source, repo_pages, commit_msg):
-                print_success(t("republish_success"))
-            return
-        elif args.unpublish:
+            if not repo_source or not repo_pages:
+                print_error(t("missing_repo_config"))
+                return
+                
+            try:
+                if processor.deploy_to_repos(repo_source, repo_pages, commit_msg):
+                    if output_format == "json":
+                        from src.utils import print_formatted_output
+                        result = {
+                            "status": "success",
+                            "message": t("republish_success")
+                        }
+                        print_formatted_output(result, "json")
+                    else:
+                        print_success(t("republish_success"))
+            except Exception as e:
+                print_error(t("deployment_failed", error=str(e)))
+                return
+        elif args.command == 'unpublish':
+            source_dir = Path(args.source).expanduser()
+            hugo_dir = Path(args.hugo_dir).expanduser()
+
+            if not source_dir.exists():
+                print_error(t("source_dir_not_exist", source_dir=source_dir))
+                return
+
+            if not hugo_dir.exists():
+                print_error(t("hugo_dir_not_exist", hugo_dir=hugo_dir))
+                return
+
+            # 创建博客处理器实例
+            processor = BlogProcessor(source_dir, hugo_dir)
+            
+            # 根据输出格式设置全局变量或选项
+            output_format = args.output_format
+            
             # 取消发布流程
             try:
                 published = processor.list_published_markdowns()
             except Exception as e:
-                print_error(t("find_markdown_error", error=str(e)))
+                print_error(t("list_published_error", error=str(e)))
                 return
                 
             if not published:
                 print_warning(t("no_articles_to_unpublish"))
                 return
-            print(f"{COLOR_YELLOW}{t('published_list_header')}{COLOR_RESET}")
+                
+            print(f"{CLIColors.YELLOW}{t('published_list_header')}{CLIColors.RESET}")
             for idx, (md_file, yaml_data) in enumerate(published):
                 print(f"[{idx}] {md_file}")
-            idxs = input(t("unpublish_selection_prompt")).strip()
-            if not idxs:
+            
+            try:
+                idxs_input = input(t("unpublish_selection_prompt")).strip()
+            except KeyboardInterrupt:
+                print_error(t("cancel_by_user"))
+                return
+                
+            if not idxs_input:
                 print_warning(t("no_selection_cancel"))
                 return
+                
             try:
-                idxs = [int(i) for i in idxs.split(',') if i.strip().isdigit() and int(i) < len(published)]
+                idxs = [int(i) for i in idxs_input.split(',') if i.strip().isdigit() and int(i) < len(published)]
+                if not idxs:
+                    print_error(t("no_valid_indices"))
+                    return
             except ValueError:
                 print_error(t("input_format_error"))
                 return
+                
             for i in idxs:
                 md_file, yaml_data = published[i]
                 try:
@@ -211,17 +406,43 @@ def main():
                     print_error(t("process_file_error", md_file_name=md_file.name, error=str(e)))
                     continue
 
-            print(f"{COLOR_YELLOW}{t('push_to_remote')}{COLOR_RESET}")
-            commit_msg = input(f"{t('unpublish_commit_prompt')}").strip() or t("default_unpublish_msg")
+            print(f"{CLIColors.YELLOW}{t('push_to_remote')}{CLIColors.RESET}")
+            try:
+                commit_msg = input(f"{t('unpublish_commit_prompt')}").strip() or t("default_unpublish_msg")
+            except KeyboardInterrupt:
+                print_error(t("cancel_by_user"))
+                return
+                
+            # Validate repository URLs
             repo_source = config.get('repositories.source.url')
             repo_pages = config.get('repositories.pages.url')
+            if not repo_source or not repo_pages:
+                print_error(t("missing_repo_config"))
+                return
+                
             try:
                 processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
             except Exception as e:
                 print_error(t("deployment_failed", error=str(e)))
                 return
-            return
-        else:
+        elif args.command == 'publish':
+            source_dir = Path(args.source).expanduser()
+            hugo_dir = Path(args.hugo_dir).expanduser()
+
+            if not source_dir.exists():
+                print_error(t("source_dir_not_exist", source_dir=source_dir))
+                return
+
+            if not hugo_dir.exists():
+                print_error(t("hugo_dir_not_exist", hugo_dir=hugo_dir))
+                return
+
+            # 创建博客处理器实例
+            processor = BlogProcessor(source_dir, hugo_dir)
+            
+            # 根据输出格式设置全局变量或选项
+            output_format = args.output_format
+
             # 正常发布流程
             selected_files = args.files
 
@@ -229,6 +450,9 @@ def main():
             if args.select:
                 try:
                     selected_files = select_articles_to_publish(processor)
+                except KeyboardInterrupt:
+                    print_error(t("cancel_by_user"))
+                    return
                 except Exception as e:
                     print_error(t("process_file_error", md_file_name="selecting articles", error=str(e)))
                     return
@@ -243,31 +467,71 @@ def main():
                 return
 
             if not processed_files:
-                print_warning(t("no_files_processed"))
+                if output_format == "json":
+                    from src.utils import print_formatted_output
+                    result = {
+                        "status": "warning",
+                        "message": t("no_files_processed")
+                    }
+                    print_formatted_output(result, "json")
+                else:
+                    print_warning(t("no_files_processed"))
                 return
 
-            print_success(t("process_files_success", count=len(processed_files)))
+            if output_format == "json":
+                from src.utils import print_formatted_output
+                result = {
+                    "status": "success",
+                    "message": t("process_files_success", count=len(processed_files)),
+                    "processed_count": len(processed_files),
+                    "files": processed_files
+                }
+                print_formatted_output(result, "json")
+            else:
+                print_success(t("process_files_success", count=len(processed_files)))
 
             # Deploy to repositories
-            if input(f"\n{COLOR_YELLOW}{t('confirm_deployment')}{COLOR_RESET}").lower().strip() in ('y', 'yes'):  # 需要在翻译文件中添加confirm_deployment
+            should_deploy = True
+            if not args.no_interactive:
+                try:
+                    should_deploy = input(f"\n{CLIColors.YELLOW}{t('confirm_deployment')}{CLIColors.RESET}").lower().strip() in ('y', 'yes')
+                except KeyboardInterrupt:
+                    print_error(t("cancel_by_user"))
+                    return
+            elif args.no_interactive:
+                print_info(t('cli_no_interactive_assuming_yes'))
+                should_deploy = True
+                
+            if should_deploy:
                 # Check if SSH key is configured
                 try:
-                    subprocess.run(['ssh', '-T', 'git@github.com'],
-                                 stderr=subprocess.PIPE,
-                                 stdout=subprocess.PIPE,
-                                 check=False)
+                    result = subprocess.run(['ssh', '-T', 'git@github.com'],
+                                         stderr=subprocess.PIPE,
+                                         stdout=subprocess.PIPE,
+                                         check=False,
+                                         timeout=10)  # Add timeout to avoid hanging
+                    if result.returncode != 0:
+                        print_warning(t("ssh_test_failed", error="SSH connection to GitHub failed. Please check your SSH keys."))
+                except subprocess.TimeoutExpired:
+                    print_error(t("ssh_test_timeout"))
+                    return
                 except Exception as e:
                     print_error(t("ssh_test_failed", error=str(e)))
                     return
 
                 # Get commit message
-                commit_msg = input(f"\n{COLOR_YELLOW}{t('enter_commit_msg')}{COLOR_RESET}").strip()  # 需要在翻译文件中添加enter_commit_msg
+                try:
+                    commit_msg = input(f"\n{CLIColors.YELLOW}{t('enter_commit_msg')}{CLIColors.RESET}").strip()
+                except KeyboardInterrupt:
+                    print_error(t("cancel_by_user"))
+                    return
+                    
                 if not commit_msg:
                     print_error(t("commit_msg_required"))
                     return
 
                 # Show deployment plan
-                print(f"\n{COLOR_YELLOW}{t('deployment_plan')}{COLOR_RESET}")
+                print(f"\n{CLIColors.YELLOW}{t('deployment_plan')}{CLIColors.RESET}")
                 print(t("deploy_step_checkout"))
                 print(t("deploy_step_add"))
                 print(t('deploy_step_commit', commit_msg=commit_msg))
@@ -275,12 +539,22 @@ def main():
                 print(t("deploy_step_build"))
                 print(t("deploy_step_push_pages"))
 
-                if input(f"\n{COLOR_YELLOW}{t('confirm_action_prompt')}{COLOR_RESET}").lower().strip() not in ('y', 'yes'):  # 需要在翻译文件中添加confirm_action_prompt
-                    print_error(t("deploy_cancelled"))
+                try:
+                    if input(f"\n{CLIColors.YELLOW}{t('confirm_action_prompt')}{CLIColors.RESET}").lower().strip() not in ('y', 'yes'):
+                        print_error(t("deploy_cancelled"))
+                        return
+                except KeyboardInterrupt:
+                    print_error(t("cancel_by_user"))
                     return
 
                 repo_source = config.get('repositories.source.url')
                 repo_pages = config.get('repositories.pages.url')
+                
+                # Validate repository URLs
+                if not repo_source or not repo_pages:
+                    print_error(t("missing_repo_config"))
+                    return
+                    
                 try:
                     processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
                 except Exception as e:
@@ -289,9 +563,8 @@ def main():
     except KeyboardInterrupt:
         print_error(t("cancel_by_user"))
     except Exception as e:
-        print_error(t("unexpected_error", error=str(e)))
-        import traceback
-        traceback.print_exc()
+        from src.utils.cli_utils import handle_exception
+        handle_exception(e, "main")
 
 if __name__ == '__main__':
     main()

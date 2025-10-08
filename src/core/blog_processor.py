@@ -11,7 +11,7 @@ from src.core.front_matter import (
     get_categories_from_tags,
     update_tag_category_mapping
 )
-from src.utils.utils import ( COLOR_BOLD, COLOR_RESET, COLOR_DIM, COLOR_YELLOW, COLOR_GREEN)
+from src.utils.cli_utils import CLIColors
 from src.utils.utils import print_step, print_success, print_error, print_warning, print_info, print_header
 from src.utils.logger import debug, info, warning, error
 from src.i18n.i18n import t
@@ -59,6 +59,7 @@ class BlogProcessor:
                     content = process_obsidian_images(content, source_file, post_dir, Path(source_file).parent)
                 except Exception as e:
                     print_warning(t("image_processing_error", error=str(e)))
+                    # 即使图片处理出错，也要继续处理文章
             
             # 处理Mermaid代码块
             content = self.process_mermaid_blocks(content)
@@ -78,7 +79,7 @@ class BlogProcessor:
                 print_info(t("using_existing_desc", description=front_matter.description))
           
             first_image = None
-            # 匹配两种格式的图片
+            # 匹配两种格式的图片（排除完整URL）
             img_patterns = [
                 r'!\[([^\]]*)\]\(([^)]+)\)',  # ![alt](image.jpg)
                 r'!\[\[([^]]+)\]\]'  # ![[image.jpg]]
@@ -90,8 +91,14 @@ class BlogProcessor:
                         img_name = match.group(1)
                     else:
                         img_name = match.group(2)
-                    first_image = img_name
-                    break
+                    
+                    # 确保不选择完整URL（如 http:// 或 https:// 开头的）
+                    if not (img_name.startswith('http://') or img_name.startswith('https://')):
+                        # 如果是绝对路径(/images/...)，将其转换为相对路径
+                        if img_name.startswith('/images/'):
+                            img_name = img_name[8:]  # 去掉 '/images/' 前缀
+                        first_image = img_name
+                        break
                 if first_image:
                     break
             front_matter.update({'image': first_image if first_image else ''})
@@ -276,7 +283,7 @@ class BlogProcessor:
                     f.write("public/\n.DS_Store\nresources/\n")
             
             # 2. Deploy to source repository
-            print(f"\n{COLOR_YELLOW}执行部署流程...{COLOR_RESET}")
+            print(f"\n{CLIColors.YELLOW}执行部署流程...{CLIColors.RESET}")
             
             # 检查Git是否已安装
             try:
@@ -339,7 +346,7 @@ class BlogProcessor:
             subprocess.run(['git', 'push', 'origin', 'main', '--force'], 
                          cwd=public_dir, check=True)
             print_success(t("pages_deploy_success"))
-            print(f"\n{COLOR_GREEN}{t('deployment_complete')}{COLOR_RESET}")
+            print(f"\n{CLIColors.GREEN}{t('deployment_complete')}{CLIColors.RESET}")
             
             return True
         except subprocess.CalledProcessError as e:

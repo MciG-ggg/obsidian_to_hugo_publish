@@ -17,7 +17,15 @@ class Config:
         初始化配置管理器
         :param config_file: 配置文件路径，如果为None则使用默认路径
         """
-        self.config_file = config_file or str(Path(__file__).parent.parent / 'config.yaml')
+        if config_file:
+            self.config_file = config_file
+        else:
+            # Look for config.yaml in the project root directory 
+            # config_manager.py is at: project_root/src/core/config_manager.py
+            # So we need to go up 2 levels: src/core -> src -> project_root
+            project_root = Path(__file__).parent.parent.parent  # Going up three levels to project root
+            self.config_file = str(project_root / 'config.yaml')
+        
         self.config = self._load_config()
         
     def _load_config(self) -> Dict[str, Any]:
