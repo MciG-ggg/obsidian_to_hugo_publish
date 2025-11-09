@@ -595,7 +595,9 @@ def main():
                                          stdout=subprocess.PIPE,
                                          check=False,
                                          timeout=10)  # Add timeout to avoid hanging
-                    if result.returncode != 0:
+                    # GitHub SSH authentication returns 1 for successful auth (no shell access)
+                    # Only treat as failure if returncode is not 0 or 1
+                    if result.returncode not in [0, 1]:
                         print_warning(t("ssh_test_failed", error="SSH connection to GitHub failed. Please check your SSH keys."))
                 except subprocess.TimeoutExpired:
                     print_error(t("ssh_test_timeout"))

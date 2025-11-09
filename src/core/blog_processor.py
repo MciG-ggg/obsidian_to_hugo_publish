@@ -45,6 +45,131 @@ class BlogProcessor:
             return f'{{{{< admonition type="note" title="{title}" >}}}}\n{cleaned_content}\n{{{{< /admonition >}}}}'
         return re.sub(pattern, replace_note, content, flags=re.MULTILINE)
 
+    def process_latex_formulas(self, content):
+        """处理LaTeX公式，确保正确的格式并避免Markdown解析问题"""
+        def process_formula(match):
+            formula_content = match.group(1).strip()
+
+            # 首先清理基本的Markdown问题
+            cleaned_content = self._clean_markdown_issues(formula_content)
+
+            # 如果已经是aligned环境，修复格式
+            if r'\begin{aligned}' in cleaned_content:
+                return self._fix_aligned_format(cleaned_content)
+
+            # 判断是否需要aligned环境
+            if self._needs_aligned(cleaned_content):
+                return self._create_aligned(cleaned_content)
+            else:
+                return self._clean_simple(cleaned_content)
+
+        # 匹配所有$$...$$公式块
+        pattern = r'\$\$(.*?)\$\$'
+        return re.sub(pattern, process_formula, content, flags=re.DOTALL)
+
+    def _clean_markdown_issues(self, content):
+        """清理LaTeX公式中的Markdown相关问题"""
+        # 按行处理
+        lines = content.split('\n')
+        cleaned_lines = []
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # 移除行首的空格+列表符号模式（但保留数学表达式中的正确运算符）
+            if re.match(r'^\s*[+\-*]\s*[^+=]', line):
+                # 如果行首有列表符号但后面不是等号或加号，移除列表符号
+                line = re.sub(r'^\s*[+\-*]\s*', '', line)
+
+            # 移除字面量的\n字符串
+            line = line.replace('\\n', ' ')
+
+            cleaned_lines.append(line)
+
+        return ' '.join(cleaned_lines)
+
+    def _needs_aligned(self, content):
+        """判断是否需要aligned环境"""
+        # 长度超过阈值且包含等号和多个运算符
+        has_equals = '=' in content
+        has_plus = content.count('+') >= 1
+        is_long = len(content) > 80
+
+        return has_equals and (is_long or has_plus)
+
+    def _clean_simple(self, content):
+        """清理简单公式"""
+        # 对于简单公式，保持单行
+        return f'$${content}$$'
+
+    def _fix_aligned_format(self, content):
+        """修复aligned环境的格式"""
+        # 移除空的等号行 (= \\)
+        content = re.sub(r'=\s*\\\\\s*', ' = ', content)
+
+        # 处理行首的+号问题
+        lines = content.split('\n')
+        fixed_lines = []
+
+        for line in lines:
+            line = line.strip()
+            if not line or line in [r'\begin{aligned}', r'\end{aligned}']:
+                fixed_lines.append(line)
+                continue
+
+            # 如果行以+开头且没有&，添加&
+            if line.startswith('+') and not line.startswith('&'):
+                line = '&' + line
+
+            fixed_lines.append(line)
+
+        return f'$${"\\n".join(fixed_lines)}$$'
+
+    def _create_aligned(self, content):
+        """创建aligned环境"""
+        # 确保内容是干净的
+        content = self._clean_markdown_issues(content)
+
+        # 如果没有等号，直接返回
+        if '=' not in content:
+            return f'$${content}$$'
+
+        # 找到第一个等号
+        eq_pos = content.find('=')
+        left_part = content[:eq_pos].strip()
+        right_part = content[eq_pos + 1:].strip()
+
+        # 如果右边不太长，保持单行aligned
+        if len(right_part) < 60:
+            return f'''$$
+\\begin{{aligned}}
+{left_part} &= {right_part}
+\\end{{aligned}}
+$$'''
+
+        # 对于长公式，在合适位置拆分
+        plus_positions = [i for i, c in enumerate(right_part) if c == '+']
+        if len(plus_positions) >= 2:
+            # 在中间的加号处拆分
+            split_pos = plus_positions[len(plus_positions) // 2]
+            part1 = right_part[:split_pos].strip()
+            part2 = right_part[split_pos:].strip()
+
+            return f'''$$
+\\begin{{aligned}}
+{left_part} &= {part1} \\\\
+&\\quad {part2}
+\\end{{aligned}}
+$$'''
+        else:
+            return f'''$$
+\\begin{{aligned}}
+{left_part} &= {right_part}
+\\end{{aligned}}
+$$'''
+
     def create_new_post(self, title, content, source_file=None, categories=None, tags=None, draft=False, description=None):
         """创建新的Hugo博客文章"""
         try:
@@ -65,6 +190,8 @@ class BlogProcessor:
             content = self.process_mermaid_blocks(content)
             # 处理NOTE块
             content = self.process_note_blocks(content)
+            # 处理LaTeX公式（新的统一处理函数）
+            content = self.process_latex_formulas(content)
             
             # 准备YAML前置数据，带入 description
             front_matter = FrontMatter({
@@ -347,7 +474,9 @@ class BlogProcessor:
             pages_msg = f"Deploy website: {commit_msg}" if commit_msg else "Update website"
             subprocess.run(['git', 'commit', '-m', pages_msg, '--allow-empty'], 
                          cwd=public_dir, check=True)
-            subprocess.run(['git', 'push', 'origin', 'main', '--force'], 
+            # 确保分支名与远程仓库匹配
+            # GitHub Pages 仓库通常使用 main 分支
+            subprocess.run(['git', 'push', 'origin', 'master:main', '--force'],
                          cwd=public_dir, check=True)
             print_success(t("pages_deploy_success"))
             print(f"\n{CLIColors.GREEN}{t('deployment_complete')}{CLIColors.RESET}")
