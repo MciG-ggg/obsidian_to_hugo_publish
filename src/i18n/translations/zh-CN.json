@@ -60,6 +60,7 @@
   "git_command_failed": "执行Git命令失败: {error}",
   "general_error": "部署过程中发生错误: {error}",
   "image_processing_error": "处理图片时出错: {error}，将继续处理",
+  "wiki_link_processing_error": "处理Wiki链接时出错: {error}，将继续处理",
   "tag_category_error": "处理标签和分类时出错: {error}，将继续处理",
   "using_existing_desc": "使用已有的描述: {description}",
   "create_new_article": "已创建新文章: {post_file}",

@@ -24,6 +24,59 @@ class BlogProcessor:
         self.hugo_dir = Path(hugo_dir)
         info(f"BlogProcessor initialized with source_dir: {source_dir}, hugo_dir: {hugo_dir}")
     
+    def process_obsidian_wiki_links(self, content, source_file=None):
+        """
+        处理Obsidian Wiki链接格式，转换为Hugo支持的格式
+        支持格式：
+        - [[页面名]] -> [页面名]({{< ref "页面名" >}})
+        - [[页面名|显示文本]] -> [显示文本]({{< ref "页面名" >}})
+        - [[#标题]] -> [#标题]
+        - [[页面名#标题]] -> [页面名#标题]({{< ref "页面名#标题" >}})
+        """
+        import re
+
+        def convert_wiki_link(match):
+            full_match = match.group(0)
+            inner_content = match.group(1)
+
+            # 解析链接内容
+            if '|' in inner_content:
+                # [[页面名|显示文本]] 格式
+                page_name, display_text = inner_content.split('|', 1)
+                page_name = page_name.strip()
+                display_text = display_text.strip()
+            else:
+                # [[页面名]] 格式
+                page_name = inner_content.strip()
+                display_text = page_name
+
+            # 处理锚点链接
+            if page_name.startswith('#'):
+                # 纯锚点链接 [[#标题]]，直接转换为Markdown锚点
+                return f"[{display_text}]({page_name})"
+
+            # 检查是否包含锚点
+            anchor = ''
+            if '#' in page_name:
+                page_name, anchor = page_name.split('#', 1)
+                anchor = f"#{anchor}"
+
+            # 生成Hugo ref链接
+            if anchor:
+                # 带锚点的链接
+                hugo_ref = f'{{{{< ref "{page_name}{anchor}" >}}}}'
+            else:
+                # 普通页面链接
+                hugo_ref = f'{{{{< ref "{page_name}" >}}}}'
+
+            return f"[{display_text}]({hugo_ref})"
+
+        # 匹配Obsidian Wiki链接模式 [[...]]，但不匹配 [[[...]]]（三重括号）
+        wiki_link_pattern = r'(?<!\[)\[\[([^\]]+)\]\](?!\])'
+        processed_content = re.sub(wiki_link_pattern, convert_wiki_link, content)
+
+        return processed_content
+
     def process_mermaid_blocks(self, content):
         """将```mermaid代码块转换为Hugo短代码格式"""
         # 使用更灵活的模式，允许空白字符变化
@@ -186,6 +239,13 @@ $$'''
                     print_warning(t("image_processing_error", error=str(e)))
                     # 即使图片处理出错，也要继续处理文章
             
+            # 处理Obsidian Wiki链接
+            try:
+                content = self.process_obsidian_wiki_links(content, source_file)
+            except Exception as e:
+                print_warning(t("wiki_link_processing_error", error=str(e)))
+                # 即使Wiki链接处理出错，也要继续处理文章
+            
             # 处理Mermaid代码块
             content = self.process_mermaid_blocks(content)
             # 处理NOTE块
@@ -209,12 +269,12 @@ $$'''
             # 匹配两种格式的图片（排除完整URL）
             img_patterns = [
                 r'!\[([^\]]*)\]\(([^)]+)\)',  # ![alt](image.jpg)
-                r'!\[\[([^]]+)\]\]'  # ![[image.jpg]]
+                r'!\[\[([^\]]+)\]\]'  # ![[image.jpg]]
             ]
             for pattern in img_patterns:
                 matches = re.finditer(pattern, content)
                 for match in matches:
-                    if pattern == r'!\[\[([^]]+)\]\]':
+                    if pattern == r'!\[\[([^\]]+)\]\]':
                         img_name = match.group(1)
                     else:
                         img_name = match.group(2)

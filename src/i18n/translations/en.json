@@ -60,6 +60,7 @@
   "git_command_failed": "Git command execution failed: {error}",
   "general_error": "An error occurred during deployment: {error}",
   "image_processing_error": "Error processing images: {error}, will continue processing",
+  "wiki_link_processing_error": "Error processing wiki links: {error}, will continue processing",
   "tag_category_error": "Error processing tags and categories: {error}, will continue processing",
   "using_existing_desc": "Using existing description: {description}",
   "create_new_article": "Created new article: {post_file}",
