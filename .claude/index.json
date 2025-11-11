@@ -1,0 +1,253 @@
+{
+  "project_info": {
+    "name": "obsidian_to_hugo_publish",
+    "description": "Obsidian 到 Hugo 的博客发布工具项目",
+    "type": "Python CLI Tool",
+    "main_language": "Python",
+    "version": "0.1.0",
+    "scanned_at": "2025-10-29T20:40:15"
+  },
+  "scan_summary": {
+    "total_files_found": 45,
+    "files_scanned": 38,
+    "files_ignored": 7,
+    "coverage_percentage": 84.4,
+    "scan_duration": "medium",
+    "truncated": false
+  },
+  "modules": [
+    {
+      "name": "core",
+      "path": "src/core",
+      "type": "核心业务逻辑",
+      "language": "Python",
+      "entry_files": [
+        "src/core/config_manager.py",
+        "src/core/blog_processor.py",
+        "src/core/front_matter.py"
+      ],
+      "test_directory": "tests/unit",
+      "config_files": ["config.yaml"],
+      "coverage": {
+        "scanned_files": 3,
+        "total_files": 3,
+        "percentage": 100
+      },
+      "key_components": [
+        "Config - 配置管理",
+        "BlogProcessor - 博客处理核心",
+        "FrontMatter - 前置数据处理"
+      ],
+      "gaps": [
+        "process_markdown_files() 完整实现逻辑待分析",
+        "Mermaid 和 Note 块转换规则待补充"
+      ]
+    },
+    {
+      "name": "handlers",
+      "path": "src/handlers",
+      "type": "处理器模块",
+      "language": "Python",
+      "entry_files": [
+        "src/handlers/obsidian_image_handler.py",
+        "src/handlers/image_processor.py"
+      ],
+      "test_directory": "tests/unit",
+      "coverage": {
+        "scanned_files": 2,
+        "total_files": 2,
+        "percentage": 100
+      },
+      "key_components": [
+        "ObsidianImageHandler - Obsidian图片处理",
+        "ImageProcessor - 通用图片处理"
+      ],
+      "gaps": [
+        "image_processor.py 实现细节待分析",
+        "并行处理性能参数待补充",
+        "图片上传功能流程待确认"
+      ]
+    },
+    {
+      "name": "i18n",
+      "path": "src/i18n",
+      "type": "国际化模块",
+      "language": "Python",
+      "entry_files": [
+        "src/i18n/i18n.py"
+      ],
+      "config_files": [
+        "src/i18n/translations/zh-CN.json",
+        "src/i18n/translations/en.json"
+      ],
+      "coverage": {
+        "scanned_files": 1,
+        "total_files": 3,
+        "percentage": 33.3
+      },
+      "key_components": [
+        "I18n - 国际化核心",
+        "翻译文件管理"
+      ],
+      "gaps": [
+        "翻译文件完整内容待梳理",
+        "根目录翻译文件关系待确认",
+        "语言切换全局影响待验证"
+      ]
+    },
+    {
+      "name": "utils",
+      "path": "src/utils",
+      "type": "工具模块",
+      "language": "Python",
+      "entry_files": [
+        "src/utils/cli_utils.py",
+        "src/utils/logger.py",
+        "src/utils/utils.py",
+        "src/utils/parallel.py",
+        "src/utils/image_uploader.py"
+      ],
+      "test_directory": "tests/unit",
+      "coverage": {
+        "scanned_files": 5,
+        "total_files": 5,
+        "percentage": 100
+      },
+      "key_components": [
+        "CLI 工具和美化",
+        "日志管理",
+        "并行处理",
+        "图片上传"
+      ],
+      "gaps": [
+        "utils.py 与 cli_utils.py 功能重叠待整理",
+        "图片上传实现细节待分析",
+        "日志配置选项待确认"
+      ]
+    },
+    {
+      "name": "tests",
+      "path": "tests",
+      "type": "测试模块",
+      "language": "Python",
+      "entry_files": [
+        "tests/conftest.py",
+        "tests/unit/test_modules.py",
+        "tests/integration/test_integration.py",
+        "tests/e2e/test_e2e.py"
+      ],
+      "config_files": ["pytest.ini"],
+      "coverage": {
+        "scanned_files": 4,
+        "total_files": 4,
+        "percentage": 100
+      },
+      "key_components": [
+        "单元测试",
+        "集成测试",
+        "端到端测试"
+      ],
+      "gaps": [
+        "具体测试用例覆盖范围待分析",
+        "测试夹具配置待梳理",
+        "性能测试覆盖情况待评估"
+      ]
+    }
+  ],
+  "ignored_files": {
+    "total_count": 7,
+    "categories": {
+      "cache_compiled": 11,
+      "virtual_env": 4,
+      "config_ignore": 2
+    },
+    "files": [
+      "__pycache__/*.pyc",
+      "venv/**",
+      ".python-version",
+      "*.lock",
+      "config.yaml (个人配置)"
+    ],
+    "reason": "忽略规则基于 .gitignore 和默认规则"
+  },
+  "documentation_generated": {
+    "root_claude_md": {
+      "path": "CLAUDE.md",
+      "status": "created",
+      "includes_mermaid": true,
+      "includes_module_index": true
+    },
+    "module_claude_md": [
+      {
+        "module": "core",
+        "path": "src/core/CLAUDE.md",
+        "status": "created",
+        "includes_breadcrumb": true
+      },
+      {
+        "module": "handlers",
+        "path": "src/handlers/CLAUDE.md",
+        "status": "created",
+        "includes_breadcrumb": true
+      },
+      {
+        "module": "i18n",
+        "path": "src/i18n/CLAUDE.md",
+        "status": "created",
+        "includes_breadcrumb": true
+      },
+      {
+        "module": "utils",
+        "path": "src/utils/CLAUDE.md",
+        "status": "created",
+        "includes_breadcrumb": true
+      },
+      {
+        "module": "tests",
+        "path": "tests/CLAUDE.md",
+        "status": "created",
+        "includes_breadcrumb": true
+      }
+    ]
+  },
+  "project_metrics": {
+    "python_files": 13,
+    "config_files": 8,
+    "test_files": 4,
+    "documentation_files": 6,
+    "main_entry_point": "hugo_publish_blog.py",
+    "dependencies": [
+      "pyyaml>=6.0",
+      "pillow>=10.0.0"
+    ]
+  },
+  "next_steps": {
+    "priority_gaps": [
+      "深入分析 image_processor.py 实现细节",
+      "梳理翻译文件的完整内容和对应关系",
+      "验证 utils.py 与 cli_utils.py 的功能重叠",
+      "分析图片上传功能的具体实现流程",
+      "确认测试用例的覆盖范围和实现情况"
+    ],
+    "recommended_scan_areas": [
+      "src/handlers/image_processor.py",
+      "src/utils/image_uploader.py",
+      "src/i18n/translations/",
+      "tests/unit/test_modules.py",
+      "config.yaml.example 完整配置项"
+    ],
+    "follow_up_actions": [
+      "完成缺口分析的详细实现文档",
+      "验证 Mermaid 图中的链接可访问性",
+      "检查面包屑导航的准确性",
+      "补充 API 文档和使用示例"
+    ]
+  },
+  "quality_indicators": {
+    "code_organization": "modular_good",
+    "test_coverage": "needs_verification",
+    "documentation_completeness": "high",
+    "error_handling": "present",
+    "type_safety": "partial"
+  }
+}
