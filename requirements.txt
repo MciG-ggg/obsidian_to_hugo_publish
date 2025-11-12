@@ -1,6 +1,8 @@
 PyYAML>=6.0
 Pillow>=10.0.0  # 用于图片处理
 python-dotenv>=1.0.0  # 用于环境变量支持
+textual>=0.41.0  # TUI框架
+rich>=13.0.0  # 终端美化库
 
 # 外部工具依赖说明：
 # - Hugo静态站点生成器 (https://gohugo.io/)

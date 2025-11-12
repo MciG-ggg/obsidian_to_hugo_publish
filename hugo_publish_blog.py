@@ -77,9 +77,23 @@ def select_articles_to_publish(processor):
         except ValueError:
             print_error(t("input_format_error"))
 
+def run_tui():
+    """启动TUI界面"""
+    try:
+        from src.tui.tui_app import BlogPublishApp
+        app = BlogPublishApp()
+        app.run()
+    except ImportError:
+        print_error(t("tui_dependencies_missing", error="TUI模块未找到，请确保安装了textual和rich"))
+        return False
+    except Exception as e:
+        print_error(t("tui_start_error", error=str(e)))
+        return False
+    return True
+
 def main():
     global output_format, cli_args
-    
+
     try:
         config = Config()
 
@@ -104,9 +118,9 @@ def main():
             epilog=t('cli_epilog'),
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
-        parser.add_argument('--lang', 
-                           default=os.getenv('LANG', 'zh-CN').split('.')[0].replace('_', '-'), 
-                           choices=['zh-CN', 'en'], 
+        parser.add_argument('--lang',
+                           default=os.getenv('LANG', 'zh-CN').split('.')[0].replace('_', '-'),
+                           choices=['zh-CN', 'en'],
                            help=t('cli_lang_help'))
         parser.add_argument('--log-file',
                            help=t('cli_log_file_help'))
@@ -115,10 +129,10 @@ def main():
                            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                            help=t('cli_log_level_help'))
         parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {t("version")}')
-        
+
         # Add subparsers for different commands
         subparsers = parser.add_subparsers(dest='command', help=t('subcommands_help'))
-        
+
         # Publish command
         publish_parser = subparsers.add_parser('publish', help=t('publish_command_help'))
         publish_parser.add_argument('--source',
@@ -139,7 +153,7 @@ def main():
         publish_parser.add_argument('--no-interactive',
                                    action='store_true',
                                    help=t('cli_no_interactive_help'))
-        
+
         # Unpublish command
         unpublish_parser = subparsers.add_parser('unpublish', help=t('unpublish_command_help'))
         unpublish_parser.add_argument('--source',
@@ -152,7 +166,7 @@ def main():
                                      default='default',
                                      choices=['default', 'json', 'table'],
                                      help=t('cli_output_format_help'))
-        
+
         # Preview command
         preview_parser = subparsers.add_parser('preview', help=t('preview_command_help'))
         preview_parser.add_argument('--source',
@@ -168,7 +182,7 @@ def main():
         preview_parser.add_argument('--no-interactive',
                                    action='store_true',
                                    help=t('cli_no_interactive_help'))
-        
+
         # Republish command
         republish_parser = subparsers.add_parser('republish', help=t('republish_command_help'))
         republish_parser.add_argument('--source',
@@ -186,28 +200,44 @@ def main():
                                      action='store_true',
                                      help=t('cli_no_interactive_help'))
 
+        # TUI command
+        tui_parser = subparsers.add_parser('tui', help=t('tui_command_help'))
+        tui_parser.add_argument('--source',
+                              default=source_default,
+                              help=t('cli_source_help'))
+        tui_parser.add_argument('--hugo-dir',
+                              default=hugo_default,
+                              help=t('cli_hugo_dir_help'))
+        tui_parser.add_argument('--output-format',
+                              default='default',
+                              choices=['default', 'json', 'table'],
+                              help=t('cli_output_format_help'))
+        tui_parser.add_argument('--no-interactive',
+                              action='store_true',
+                              help=t('cli_no_interactive_help'))
+
         args = parser.parse_args()
-        
+
         # 设置语言环境
         set_locale(args.lang)
-        
+
         # 检查是否有版本参数，如果有则已经由argparse处理并退出
         # 根据新的命令行参数设置输出格式等
         if args.output_format == 'json':
             # 如果用户选择json格式，我们可以设置一个全局变量或在相关函数中处理
             pass  # 目前暂时留空，可以后续实现具体处理逻辑
-        
+
         # 检查是否使用非交互模式
-        if args.no_interactive and not (args.files or args.preview or args.republish):
+        if args.no_interactive and not (hasattr(args, 'files') and args.files or args.preview or args.republish):
             print_error(t("cli_no_interactive_requires_option"))
             return
 
         # 根据输出格式设置全局变量或选项
         output_format = args.output_format
-        
+
         # 保存 args 以便其他函数使用
         cli_args = args
-        
+
         # 设置日志
         # 优先使用命令行参数，如果未指定则使用配置文件中的设置
         if args.log_file:
@@ -216,7 +246,7 @@ def main():
             log_file = config.get('logging.file')
             if log_file:
                 set_log_file(log_file)
-                
+
         if args.log_level != 'INFO':  # 检查是否是默认值
             set_log_level(args.log_level)
         else:
@@ -229,7 +259,10 @@ def main():
             return
 
         # 根据命令执行相应操作
-        if args.command == 'preview':
+        if args.command == 'tui':
+            print_info(t("starting_tui"))
+            run_tui()
+        elif args.command == 'preview':
             source_dir = Path(args.source).expanduser()
             hugo_dir = Path(args.hugo_dir).expanduser()
 
@@ -243,9 +276,9 @@ def main():
 
             # 创建博客处理器实例
             processor = BlogProcessor(source_dir, hugo_dir)
-            
+
             print_task_header(t("start_preview_header"), t("preview_process_description"))
-            
+
             try:
                 print_info(t("starting_preview_info"))
                 processor.preview_site()
@@ -266,10 +299,10 @@ def main():
 
             # 创建博客处理器实例
             processor = BlogProcessor(source_dir, hugo_dir)
-            
+
             # 根据输出格式设置全局变量或选项
             output_format = args.output_format
-            
+
             # 重新发布流程
             print_task_header(t("start_republish_header"), t("republish_process_description"))
             try:
@@ -277,7 +310,7 @@ def main():
             except Exception as e:
                 print_error(t("list_published_error", error=str(e)))
                 return
-                
+
             if not published:
                 print_warning(t("no_published_articles"))
                 return
@@ -301,7 +334,7 @@ def main():
                         unpublished_count += 1
                     else:
                         print_subtask_status(
-                            t("unpublish_article_task", article=article_name), 
+                            t("unpublish_article_task", article=article_name),
                             "warning",
                             t("not_found_status")
                         )
@@ -317,22 +350,22 @@ def main():
             print_step(2, t("republish_all_step"))
             try:
                 print_info(t("processing_articles_info", count=len(published)))
-                
+
                 # 创建一个简单的进度回调函数
                 def progress_callback(current, total):
                     progress_tracker.update_task(
-                        t("processing_articles_task"), 
-                        current, 
+                        t("processing_articles_task"),
+                        current,
                         total
                     )
-                
+
                 # 修改 process_markdown_files 以支持进度回调
                 processed_files = processor.process_markdown_files(
-                    as_draft=args.draft, 
+                    as_draft=args.draft,
                     progress_callback=progress_callback
                 )
                 progress_tracker.start_task(t("publish_articles_task"))
-                
+
             except Exception as e:
                 print_error(t("process_file_error", md_file_name="files", error=str(e)))
                 return
@@ -368,14 +401,14 @@ def main():
 
             print_step(3, t("deploy_step"))
             commit_msg = t("start_republish_header")
-            
+
             # Validate repository URLs
             repo_source = config.get('repositories.source.url')
             repo_pages = config.get('repositories.pages.url')
             if not repo_source or not repo_pages:
                 print_error(t("missing_repo_config"))
                 return
-                
+
             try:
                 print_info(t("starting_deployment_info"))
                 if processor.deploy_to_repos(repo_source, repo_pages, commit_msg):
@@ -396,8 +429,8 @@ def main():
                 progress_tracker.start_task(t("deployment_task"))
             except Exception as e:
                 print_subtask_status(
-                    t("deployment_task"), 
-                    "error", 
+                    t("deployment_task"),
+                    "error",
                     str(e)
                 )
                 print_error(t("deployment_failed", error=str(e)))
@@ -416,37 +449,37 @@ def main():
 
             # 创建博客处理器实例
             processor = BlogProcessor(source_dir, hugo_dir)
-            
+
             # 根据输出格式设置全局变量或选项
             output_format = args.output_format
-            
+
             # 取消发布流程
             print_task_header(t("start_unpublish_header"), t("unpublish_process_description"))
-            
+
             try:
                 published = processor.list_published_markdowns()
             except Exception as e:
                 print_error(t("list_published_error", error=str(e)))
                 return
-                
+
             if not published:
                 print_warning(t("no_articles_to_unpublish"))
                 return
-                
+
             print_subtask_status(t("list_published_articles_task"), "info", t("found_count_info", count=len(published)))
             for idx, (md_file, yaml_data) in enumerate(published):
                 print(f"[{idx}] {md_file}")
-            
+
             try:
                 idxs_input = input(t("unpublish_selection_prompt")).strip()
             except KeyboardInterrupt:
                 print_error(t("cancel_by_user"))
                 return
-                
+
             if not idxs_input:
                 print_warning(t("no_selection_cancel"))
                 return
-                
+
             try:
                 idxs = [int(i) for i in idxs_input.split(',') if i.strip().isdigit() and int(i) < len(published)]
                 if not idxs:
@@ -455,7 +488,7 @@ def main():
             except ValueError:
                 print_error(t("input_format_error"))
                 return
-                
+
             for i in idxs:
                 md_file, yaml_data = published[i]
                 try:
@@ -471,7 +504,7 @@ def main():
                 except Exception as e:
                     print_subtask_status(
                         t("unpublish_article_task", article=article_name),
-                        "error", 
+                        "error",
                         str(e)
                     )
                     continue
@@ -482,14 +515,14 @@ def main():
             except KeyboardInterrupt:
                 print_error(t("cancel_by_user"))
                 return
-                
+
             # Validate repository URLs
             repo_source = config.get('repositories.source.url')
             repo_pages = config.get('repositories.pages.url')
             if not repo_source or not repo_pages:
                 print_error(t("missing_repo_config"))
                 return
-                
+
             try:
                 print_info(t("starting_deployment_info"))
                 success = processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
@@ -516,7 +549,7 @@ def main():
 
             # 创建博客处理器实例
             processor = BlogProcessor(source_dir, hugo_dir)
-            
+
             # 根据输出格式设置全局变量或选项
             output_format = args.output_format
 
@@ -524,7 +557,7 @@ def main():
             selected_files = args.files
 
             print_task_header(t("start_publish_header"), t("publish_process_description"))
-            
+
             # 如果使用了 --select 参数，让用户选择文章
             if args.select:
                 try:
@@ -586,7 +619,7 @@ def main():
             elif args.no_interactive:
                 print_info(t('cli_no_interactive_assuming_yes'))
                 should_deploy = True
-                
+
             if should_deploy:
                 # Check if SSH key is configured
                 try:
@@ -612,7 +645,7 @@ def main():
                 except KeyboardInterrupt:
                     print_error(t("cancel_by_user"))
                     return
-                    
+
                 if not commit_msg:
                     print_error(t("commit_msg_required"))
                     return
@@ -636,12 +669,12 @@ def main():
 
                 repo_source = config.get('repositories.source.url')
                 repo_pages = config.get('repositories.pages.url')
-                
+
                 # Validate repository URLs
                 if not repo_source or not repo_pages:
                     print_error(t("missing_repo_config"))
                     return
-                    
+
                 try:
                     print_info(t("starting_deployment_info"))
                     success = processor.deploy_to_repos(repo_source, repo_pages, commit_msg)
