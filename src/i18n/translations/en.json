@@ -142,5 +142,48 @@
   "starting_tui": "Starting TUI interface...",
   "tui_dependencies_missing": "TUI dependencies missing: {error}",
   "tui_start_error": "TUI startup failed: {error}",
-  "version": "1.0.0"
+  "version": "1.0.0",
+
+  "progress": {
+    "processing_progress": "Processing Progress",
+    "speed": "Processing Speed",
+    "remaining": "Remaining Time",
+    "files_per_minute": "files/minute"
+  },
+
+  "status": {
+    "idle": "Idle",
+    "processing": "Processing",
+    "completed": "Completed",
+    "current_operation": "Current Operation"
+  },
+
+  "metrics": {
+    "performance": "Performance Metrics",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "speed_chart": "Speed Chart"
+  },
+
+  "controls": {
+    "operations": "Operation Controls",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "cancel": "Cancel"
+  },
+
+  "errors": {
+    "statistics": "Error Statistics",
+    "total": "Total Errors",
+    "success_rate": "Success Rate",
+    "error_rate": "Error Rate",
+    "time": "Time",
+    "category": "Category",
+    "message": "Message"
+  },
+
+  "dashboard": {
+    "progress_monitor": "Progress Monitor Dashboard"
+  }
 }

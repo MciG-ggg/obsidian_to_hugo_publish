@@ -142,5 +142,48 @@
   "starting_tui": "正在启动TUI界面...",
   "tui_dependencies_missing": "TUI依赖缺失: {error}",
   "tui_start_error": "TUI启动失败: {error}",
-  "version": "1.0.0"
+  "version": "1.0.0",
+
+  "progress": {
+    "processing_progress": "处理进度",
+    "speed": "处理速度",
+    "remaining": "剩余时间",
+    "files_per_minute": "文件/分钟"
+  },
+
+  "status": {
+    "idle": "待机",
+    "processing": "处理中",
+    "completed": "已完成",
+    "current_operation": "当前操作"
+  },
+
+  "metrics": {
+    "performance": "性能指标",
+    "cpu": "CPU",
+    "memory": "内存",
+    "speed_chart": "速度图表"
+  },
+
+  "controls": {
+    "operations": "操作控制",
+    "start": "开始",
+    "pause": "暂停",
+    "resume": "恢复",
+    "cancel": "取消"
+  },
+
+  "errors": {
+    "statistics": "错误统计",
+    "total": "总错误数",
+    "success_rate": "成功率",
+    "error_rate": "错误率",
+    "time": "时间",
+    "category": "分类",
+    "message": "消息"
+  },
+
+  "dashboard": {
+    "progress_monitor": "进度监控仪表板"
+  }
 }
