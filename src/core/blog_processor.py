@@ -16,6 +16,7 @@ from src.utils.utils import print_step, print_success, print_error, print_warnin
 from src.utils.logger import debug, info, warning, error
 from src.i18n.i18n import t
 
+from src.core.config_manager import Config
 class BlogProcessor:
     """博客处理类，负责处理博客相关的具体操作"""
     
@@ -373,7 +374,7 @@ $$'''
         
         return processed_files
     
-    def list_published_markdowns(self):
+    def list_published_markdowns(self, sort_by=None):
         """列出所有publish: true的markdown文件"""
         published = []
         try:
@@ -388,7 +389,24 @@ $$'''
         except Exception as e:
             print_error(t("find_markdown_error", error=str(e)))
             raise
-        
+
+        # 根据sort_by参数进行排序
+        if sort_by == 'mtime' or sort_by is None:
+            # 按修改时间排序（最新的在最后）- 这是默认行为
+            published.sort(key=lambda x: self.get_file_mtime(x[0]))
+        elif sort_by == 'title':
+            # 按标题排序
+            published.sort(key=lambda x: x[1].title.lower() if x[1].title else x[0].name.lower())
+        elif sort_by == 'path':
+            # 按文件路径排序
+            published.sort(key=lambda x: str(x[0]))
+        elif sort_by == 'name':
+            # 按文件名排序
+            published.sort(key=lambda x: x[0].name.lower())
+        else:
+            # 对于无效参数，回退到默认的 mtime 排序
+            published.sort(key=lambda x: self.get_file_mtime(x[0]))
+
         return published
     
     def set_publish_false(self, md_file):
@@ -659,3 +677,94 @@ $$'''
         except Exception as e:
             print_error(t("general_error", error=str(e)))
             return False 
+    def unpublish_all_articles(self):
+        """
+        取消发布所有Hugo文章
+
+        Returns:
+            int: 成功取消发布的文章数量
+        """
+        try:
+            content_post_dir = self.hugo_dir / 'content' / 'post'
+            if not content_post_dir.exists():
+                print_warning("Content directory not found")
+                return 0
+
+            article_dirs = [d for d in content_post_dir.iterdir() if d.is_dir()]
+            if not article_dirs:
+                print_info("No articles found to unpublish")
+                return 0
+
+            success_count = 0
+            for article_dir in article_dirs:
+                try:
+                    shutil.rmtree(article_dir)
+                    print_warning(f"Unpublished article: {article_dir.name}")
+                    success_count += 1
+                except Exception as e:
+                    print_error(f"Failed to unpublish {article_dir.name}: {str(e)}")
+
+            print_success(f"Successfully unpublished {success_count} articles")
+            return success_count
+
+        except Exception as e:
+            print_error(f"Error unpublishing all articles: {str(e)}")
+            return 0
+
+    def deploy(self):
+        """
+        部署更改到配置的仓库
+
+        Returns:
+            bool: 部署是否成功
+        """
+        try:
+            # 获取仓库配置
+            config = Config(self.config_path)
+            repo_source = config.get('repositories.source.url')
+            repo_pages = config.get('repositories.pages.url')
+
+            if not repo_source or not repo_pages:
+                print_error("Repository URLs not configured")
+                return False
+
+            return self.deploy_to_repos(repo_source, repo_pages)
+
+        except Exception as e:
+            print_error(f"Deploy failed: {str(e)}")
+            return False
+
+    def get_file_mtime(self, file_path):
+        """
+        获取文件的修改时间
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            datetime: 文件修改时间对象
+        """
+        try:
+            import os
+            stat = os.stat(file_path)
+            return datetime.fromtimestamp(stat.st_mtime)
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            warning(f"无法获取文件 {file_path} 的时间信息: {e}")
+            return datetime.now()  # 返回当前时间作为后备
+
+    def format_mtime(self, mtime):
+        """
+        格式化修改时间为显示格式
+
+        Args:
+            mtime: datetime 对象
+
+        Returns:
+            str: 格式化后的时间字符串
+        """
+        try:
+            return mtime.strftime('%Y-%m-%d %H:%M')
+        except (ValueError, TypeError, AttributeError) as e:
+            warning(f"时间格式化失败: {e}")
+            return "时间不可用"
+

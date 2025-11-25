@@ -156,6 +156,10 @@
   "unpublish_similar_directories": "Similar directories: {directories}",
   "unpublish_partial_match_used": "Warning: Using partial match found directory: {found_directory}",
   "unpublish_template_match_used": "Warning: Using template match found directory: {found_directory}",
+  "modified_time_label": "Modified: {mtime}",
+  "modified_time_format": "YYYY-MM-DD HH:MM format description",
+  "sort_by_mtime_config": "Sort by modification time",
+  "modified_time_unavailable": "Time information unavailable",
 
   "progress": {
     "processing_progress": "Processing Progress",

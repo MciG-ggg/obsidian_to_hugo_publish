@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 class Config:
     """配置管理类"""
-    
+
     def __init__(self, config_file: str = None):
         """
         初始化配置管理器
@@ -20,14 +20,14 @@ class Config:
         if config_file:
             self.config_file = config_file
         else:
-            # Look for config.yaml in the project root directory 
+            # Look for config.yaml in the project root directory
             # config_manager.py is at: project_root/src/core/config_manager.py
             # So we need to go up 2 levels: src/core -> src -> project_root
             project_root = Path(__file__).parent.parent.parent  # Going up three levels to project root
             self.config_file = str(project_root / 'config.yaml')
-        
+
         self.config = self._load_config()
-        
+
     def _load_config(self) -> Dict[str, Any]:
         """
         加载配置文件
@@ -35,10 +35,19 @@ class Config:
         """
         if not Path(self.config_file).exists():
             return self._get_default_config()
-            
-        with open(self.config_file, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
-            
+
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                loaded_config = yaml.safe_load(f)
+                # 如果文件为空或内容为null，返回默认配置
+                if loaded_config is None:
+                    return self._get_default_config()
+                return loaded_config
+        except (yaml.YAMLError, IOError) as e:
+            # 如果配置文件解析失败，使用默认配置
+            print(f"Warning: Failed to load config file {self.config_file}: {e}")
+            return self._get_default_config()
+
     def _get_default_config(self) -> Dict[str, Any]:
         """
         获取默认配置
@@ -87,6 +96,9 @@ class Config:
                 'check_links': False,
                 'minify': True
             },
+            'display': {
+                'sort_by_mtime': True
+            },
             'api': {
                 'deepseek': {
                     'api_key': '',
@@ -100,7 +112,7 @@ class Config:
                 'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             }
         }
-        
+
     def get(self, key: str, default: Any = None) -> Any:
         """
         获取配置值
@@ -116,14 +128,14 @@ class Config:
             else:
                 return default
         return value
-        
+
     def save(self) -> None:
         """
         保存配置到文件
         """
         with open(self.config_file, 'w', encoding='utf-8') as f:
             yaml.dump(self.config, f, allow_unicode=True)
-            
+
     def update(self, key: str, value: Any) -> None:
         """
         更新配置
@@ -138,7 +150,14 @@ class Config:
             config = config[k]
         config[keys[-1]] = value
         self.save()
-        
+
+    def get_sort_config(self) -> bool:
+        """
+        获取排序配置
+        :return: 是否启用按修改时间排序
+        """
+        return bool(self.get('display.sort_by_mtime', True))
+
     def expand_path(self, path: str) -> str:
         """
         展开路径中的用户目录和环境变量
@@ -146,7 +165,7 @@ class Config:
         :return: 展开后的路径
         """
         return os.path.expandvars(os.path.expanduser(path))
-    
+
     def validate_config(self) -> bool:
         """
         验证配置的有效性
@@ -155,33 +174,33 @@ class Config:
         # 检查必要路径是否存在
         obsidian_vault = self.get('paths.obsidian.vault')
         hugo_blog = self.get('paths.hugo.blog')
-        
+
         if not obsidian_vault or not hugo_blog:
             print_error("配置错误：必须设置 obsidian.vault 和 hugo.blog 路径")
             return False
-        
+
         # 检查仓库URL
         source_url = self.get('repositories.source.url')
         pages_url = self.get('repositories.pages.url')
-        
+
         if not source_url or not pages_url:
             print_error("配置错误：必须设置 source 和 pages 仓库URL")
             return False
-        
+
         # 检查路径是否存在
         expanded_obsidian = self.expand_path(obsidian_vault)
         expanded_hugo = self.expand_path(hugo_blog)
-        
+
         if not Path(expanded_obsidian).exists():
             print_error(f"配置错误：Obsidian仓库路径不存在: {expanded_obsidian}")
             return False
-            
+
         if not Path(expanded_hugo).exists():
             print_error(f"配置错误：Hugo博客路径不存在: {expanded_hugo}")
             return False
-        
+
         return True
-        
+
     def get_config_schema(self) -> Dict[str, Any]:
         """
         获取配置结构模式，用于验证和文档
@@ -229,6 +248,14 @@ class Config:
                 'backup': {'type': 'boolean', 'required': False, 'default': False, 'description': '是否在部署前备份'},
                 'check_links': {'type': 'boolean', 'required': False, 'default': False, 'description': '是否检查链接'},
                 'minify': {'type': 'boolean', 'required': False, 'default': True, 'description': '是否压缩HTML/CSS/JS'}
+            },
+            'display': {
+                'sort_by_mtime': {
+                    'type': 'boolean',
+                    'required': False,
+                    'default': True,
+                    'description': '是否按修改时间排序文章列表'
+                }
             },
             'api': {
                 'deepseek': {

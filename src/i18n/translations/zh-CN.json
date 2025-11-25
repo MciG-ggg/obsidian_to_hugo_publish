@@ -13,5 +13,9 @@
   "unpublish_article_not_found": "文章 '{article_name}' 未找到，无法取消发布",
   "unpublish_similar_directories": "相似目录: {directories}",
   "unpublish_partial_match_used": "警告：使用部分匹配找到目录: {found_directory}",
-  "unpublish_template_match_used": "警告：使用模板匹配找到目录: {found_directory}"
+  "unpublish_template_match_used": "警告：使用模板匹配找到目录: {found_directory}",
+  "modified_time_label": "修改时间: {mtime}",
+  "modified_time_format": "YYYY-MM-DD HH:MM",
+  "sort_by_mtime_config": "按修改时间排序",
+  "modified_time_unavailable": "时间信息不可用"
 }
