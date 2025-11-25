@@ -410,14 +410,125 @@ $$'''
             print_error(t("update_publish_error", md_file=str(md_file), error=str(e)))
             return False
     
-    def unpublish_article(self, article_name):
-        """删除hugo下对应文章文件夹"""
+    def unpublish_article(self, article_name, possible_directory_names=None):
+        """
+        删除hugo下对应文章文件夹（增强版本）
+
+        使用多重查找策略来定位文章目录，解决文件名与标题不匹配的问题
+
+        Args:
+            article_name: 文章名称（通常基于文件名）
+            possible_directory_names: 可能的目录名列表（可选）
+
+        Returns:
+            bool: 是否成功删除
+        """
         try:
-            post_dir = self.hugo_dir / 'content' / 'post' / article_name.lower().replace(' ', '-')
+            content_post_dir = self.hugo_dir / 'content' / 'post'
+
+            # 策略1: 标准查找（向后兼容原有逻辑）
+            post_dir = content_post_dir / article_name.lower().replace(' ', '-')
             if post_dir.exists():
                 shutil.rmtree(post_dir)
                 print_warning(t("unpublished_success", article_name=article_name))
                 return True
+
+            # 策略2: 增强查找 - 如果提供了可能的目录名
+            if possible_directory_names:
+                for dir_name in possible_directory_names:
+                    enhanced_dir = content_post_dir / dir_name
+                    if enhanced_dir.exists():
+                        shutil.rmtree(enhanced_dir)
+                        print_warning(t("unpublish_directory_name_mismatch",
+                                      article_name=article_name,
+                                      found_directory=dir_name))
+                        print_success(t("unpublished_success", article_name=article_name))
+                        return True
+
+            # 策略3: 模糊匹配查找
+            if content_post_dir.exists():
+                existing_dirs = [d for d in content_post_dir.iterdir() if d.is_dir()]
+
+                # 3.1 忽略大小写匹配
+                for dir_path in existing_dirs:
+                    if dir_path.name.lower() == article_name.lower():
+                        shutil.rmtree(dir_path)
+                        print_warning(t("unpublish_partial_match_used",
+                                      article_name=article_name,
+                                      found_directory=dir_path.name))
+                        print_success(t("unpublished_success", article_name=article_name))
+                        return True
+
+                # 3.2 标准化匹配（都转换为小写和连字符）
+                article_normalized = article_name.lower().replace(' ', '-').replace('_', '-')
+                for dir_path in existing_dirs:
+                    dir_normalized = dir_path.name.lower().replace(' ', '-').replace('_', '-')
+                    if dir_normalized == article_normalized:
+                        shutil.rmtree(dir_path)
+                        print_warning(t("unpublish_partial_match_used",
+                                      article_name=article_name,
+                                      found_directory=dir_path.name))
+                        print_success(t("unpublished_success", article_name=article_name))
+                        return True
+
+                # 3.3 部分匹配（包含关系）
+                for dir_path in existing_dirs:
+                    if (article_name.lower() in dir_path.name.lower() or
+                        dir_path.name.lower() in article_name.lower()):
+                        shutil.rmtree(dir_path)
+                        print_warning(t("unpublish_partial_match_used",
+                                      article_name=article_name,
+                                      found_directory=dir_path.name))
+                        print_success(t("unpublished_success", article_name=article_name))
+                        return True
+
+                # 3.4 模板模式匹配（处理 weekly 等模板文件）
+                # 检查 article_name 是否包含常见的模板关键词
+                template_keywords = ['weekly', 'daily', 'monthly', 'template']
+                if any(keyword in article_name.lower() for keyword in template_keywords):
+                    # 尝试匹配基于日期格式的目录
+                    for dir_path in existing_dirs:
+                        dir_name = dir_path.name
+                        # 匹配年份-周数格式: 2025-w22-06
+                        if (dir_name.startswith('20') and
+                            ('-w' in dir_name.lower() or '-week' in dir_name.lower())):
+                            # 如果是 weekly 相关文章，匹配周格式目录
+                            if 'weekly' in article_name.lower():
+                                shutil.rmtree(dir_path)
+                                print_warning(t("unpublish_template_match_used",
+                                              article_name=article_name,
+                                              found_directory=dir_name))
+                                print_success(t("unpublished_success", article_name=article_name))
+                                return True
+
+                        # 匹配其他常见格式
+                        if (dir_name.startswith('20') and
+                            ('-d' in dir_name.lower() or '-m' in dir_name.lower())):
+                            # 如果是 daily/monthly 相关文章
+                            if ('daily' in article_name.lower() or 'monthly' in article_name.lower()):
+                                shutil.rmtree(dir_path)
+                                print_warning(t("unpublish_template_match_used",
+                                              article_name=article_name,
+                                              found_directory=dir_name))
+                                print_success(t("unpublished_success", article_name=article_name))
+                                return True
+
+            # 如果所有策略都失败，提供详细的错误信息
+            print_error(t("unpublish_article_not_found", article_name=article_name))
+
+            # 提供相似目录信息
+            if content_post_dir.exists():
+                existing_dirs = [d.name for d in content_post_dir.iterdir() if d.is_dir()]
+                if existing_dirs:
+                    similar_dirs = [d for d in existing_dirs
+                                  if article_name.lower() in d.lower() or d.lower() in article_name.lower()]
+                    if similar_dirs:
+                        print_info(t("unpublish_similar_directories", directories=', '.join(similar_dirs)))
+
+            return False
+
+        except Exception as e:
+            print_error(t("unpublish_error", article_name=article_name, error=str(e)))
             return False
         except Exception as e:
             print_error(t("unpublish_error", article_name=article_name, error=str(e)))

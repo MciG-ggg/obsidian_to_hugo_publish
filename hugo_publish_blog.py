@@ -19,6 +19,7 @@ sys.path.insert(0, str(src_dir))
 
 from src.core.config_manager import Config
 from src.core.blog_processor import BlogProcessor
+from src.core.front_matter import extract_yaml_and_content
 from src.utils.cli_utils import print_step, print_success, print_error, print_warning, print_info, print_header, print_task_header, print_subtask_status
 from src.i18n.i18n import set_locale, t
 from src.utils import set_log_file, set_log_level
@@ -48,7 +49,7 @@ def select_articles_to_publish(processor):
             return []
 
         if selection.lower() == 'all':
-            return [md_file.name for md_file, _ in published]
+            return [str(md_file) for md_file, _ in published]
 
         try:
             # 解析用户输入的数字
@@ -70,8 +71,63 @@ def select_articles_to_publish(processor):
                 print_error(t("no_valid_indices"))
                 continue
 
-            selected_files = [published[idx][0].name for idx in selected_indices]
+            selected_files = [str(published[idx][0]) for idx in selected_indices]
             print_success(t("selected_count", count=len(selected_files)))  # 需要在翻译文件中添加selected_count
+            return selected_files
+
+        except ValueError:
+            print_error(t("input_format_error"))
+
+def select_articles_to_unpublish(processor):
+    """让用户选择要取消发布的文章"""
+    published = processor.list_published_markdowns()
+    if not published:
+        print_warning(t("no_published_articles"))
+        return []
+
+    print_header(t("start_unpublish_header"))
+    for idx, (md_file, yaml_data) in enumerate(published):
+        title = yaml_data.title if yaml_data.title else md_file.stem
+        description = yaml_data.description if yaml_data.description else t("no_description_fallback")
+        print(f"{CLIColors.BOLD}[{idx}]{CLIColors.RESET} {title}")
+        print(f"    {CLIColors.DIM}{t('file_label', filename=md_file.name)}{CLIColors.RESET}")
+        print(f"    {CLIColors.DIM}{t('description_label', description=description)}{CLIColors.RESET}")
+        if yaml_data.tags:
+            print(f"    {CLIColors.DIM}{t('tags_label', tags=', '.join(yaml_data.tags))}{CLIColors.RESET}")
+        print()
+
+    while True:
+        selection = input(f"{CLIColors.YELLOW}{t('select_article_prompt')}{CLIColors.RESET}").strip()
+
+        if not selection:
+            print_warning(t("no_selection_cancel"))
+            return []
+
+        if selection.lower() == 'all':
+            return [str(md_file) for md_file, _ in published]
+
+        try:
+            # 解析用户输入的数字
+            selected_indices = []
+            for part in selection.split(','):
+                part = part.strip()
+                if part.isdigit():
+                    idx = int(part)
+                    if 0 <= idx < len(published):
+                        selected_indices.append(idx)
+                    else:
+                        print_error(t("invalid_selection", idx=idx))
+                        continue
+                else:
+                    print_error(t("invalid_input", part=part))
+                    continue
+
+            if not selected_indices:
+                print_error(t("no_valid_indices"))
+                continue
+
+            selected_files = [str(published[idx][0]) for idx in selected_indices]
+            print_success(t("selected_count", count=len(selected_files)))
             return selected_files
 
         except ValueError:
@@ -82,19 +138,19 @@ def run_tui():
     try:
         from src.tui.tui_app import BlogPublishApp
         from src.core.config_manager import Config
-        
+
         # 使用配置文件中的配置
         config = Config()
-        
+
         # 通过新的main方法启动TUI
         exit_code = BlogPublishApp.main(
             config=config,
             validate_config=True,
             skip_checks=False
         )
-        
+
         return exit_code == 0
-        
+
     except ImportError as e:
         print_error(t("tui_dependencies_missing", error=str(e)))
         return False
@@ -104,30 +160,30 @@ def run_tui():
 
 class CLIConfig:
     """CLI配置管理类"""
-    
+
     def __init__(self, config: Config, args: argparse.Namespace):
         self.config = config
         self.args = args
         self.source_dir = Path(args.source).expanduser() if hasattr(args, 'source') else None
         self.hugo_dir = Path(args.hugo_dir).expanduser() if hasattr(args, 'hugo_dir') else None
         self.output_format = getattr(args, 'output_format', 'default')
-        
+
     def validate_paths(self) -> tuple[bool, list[str]]:
         """验证路径配置"""
         errors = []
-        
+
         if not self.source_dir:
             errors.append("未指定源目录")
         elif not self.source_dir.exists():
             errors.append(f"源目录不存在: {self.source_dir}")
-            
+
         if not self.hugo_dir:
             errors.append("未指定Hugo目录")
         elif not self.hugo_dir.exists():
             errors.append(f"Hugo目录不存在: {self.hugo_dir}")
-            
+
         return len(errors) == 0, errors
-    
+
     def create_processor(self) -> Optional[BlogProcessor]:
         """创建博客处理器"""
         if not self.source_dir or not self.hugo_dir:
@@ -137,33 +193,33 @@ class CLIConfig:
 
 class CommandHandler:
     """命令处理器基类"""
-    
+
     def __init__(self, cli_config: CLIConfig):
         self.cli_config = cli_config
         self.config = cli_config.config
         self.args = cli_config.args
-        
+
     def handle(self) -> int:
         """处理命令，返回退出码"""
         raise NotImplementedError
-    
+
     def validate_repos(self) -> tuple[bool, list[str]]:
         """验证仓库配置"""
         errors = []
         repo_source = self.config.get('repositories.source.url')
         repo_pages = self.config.get('repositories.pages.url')
-        
+
         if not repo_source:
             errors.append("缺少源仓库配置")
         if not repo_pages:
             errors.append("缺少Pages仓库配置")
-            
+
         return len(errors) == 0, errors
 
 
 class PublishHandler(CommandHandler):
     """发布命令处理器"""
-    
+
     def handle(self) -> int:
         """处理发布命令"""
         # 验证路径
@@ -172,29 +228,29 @@ class PublishHandler(CommandHandler):
             for error in path_errors:
                 print_error(error)
             return 1
-        
+
         processor = self.cli_config.create_processor()
         if not processor:
             print_error("无法创建博客处理器")
             return 1
-        
+
         # 获取要发布的文件
         selected_files = self._get_selected_files(processor)
         if selected_files is None:  # 用户取消
             return 0
-        
+
         # 处理文件
         processed_files = self._process_files(processor, selected_files)
         if not processed_files:
             return 1
-        
+
         # 部署
         return self._deploy(processor, processed_files)
-    
+
     def _get_selected_files(self, processor: BlogProcessor) -> Optional[list]:
         """获取要发布的文件列表"""
         selected_files = getattr(self.args, 'files', [])
-        
+
         # 如果使用选择参数，让用户选择文章
         if getattr(self.args, 'select', False):
             try:
@@ -205,20 +261,20 @@ class PublishHandler(CommandHandler):
             except Exception as e:
                 print_error(t("process_file_error", md_file_name="selecting articles", error=str(e)))
                 return None
-        
+
         return selected_files
-    
+
     def _process_files(self, processor: BlogProcessor, selected_files: list) -> list:
         """处理文件"""
         print_task_header(t("start_publish_header"), t("publish_process_description"))
-        
+
         try:
             print_info(t("processing_articles_info", count=len(selected_files) if selected_files else "all"))
             processed_files = processor.process_markdown_files(selected_files, as_draft=getattr(self.args, 'draft', False))
         except Exception as e:
             print_error(t("process_file_error", md_file_name="files", error=str(e)))
             return []
-        
+
         if not processed_files:
             if self.cli_config.output_format == "json":
                 from src.utils import print_formatted_output
@@ -227,7 +283,7 @@ class PublishHandler(CommandHandler):
             else:
                 print_warning(t("no_files_processed"))
             return []
-        
+
         if self.cli_config.output_format == "json":
             from src.utils import print_formatted_output
             result = {
@@ -244,45 +300,45 @@ class PublishHandler(CommandHandler):
                 "success",
                 t("published_count_info", count=len(processed_files))
             )
-        
+
         return processed_files
-    
+
     def _deploy(self, processor: BlogProcessor, processed_files: list) -> int:
         """部署到仓库"""
         # 确认部署
         should_deploy = self._confirm_deployment()
         if not should_deploy:
             return 0
-        
+
         # SSH连接测试
         if not self._test_ssh_connection():
             return 1
-        
+
         # 获取提交信息
         commit_msg = self._get_commit_message()
         if not commit_msg:
             return 1
-        
+
         # 显示部署计划
         if not self._show_deployment_plan(commit_msg):
             return 0
-        
+
         # 执行部署
         return self._execute_deployment(processor, commit_msg)
-    
+
     def _confirm_deployment(self) -> bool:
         """确认是否部署"""
         if getattr(self.args, 'no_interactive', False):
             print_info(t('cli_no_interactive_assuming_yes'))
             return True
-        
+
         try:
             response = input(f"\n{CLIColors.YELLOW}{t('confirm_deployment')}{CLIColors.RESET}").lower().strip()
             return response in ('y', 'yes')
         except KeyboardInterrupt:
             print_error(t("cancel_by_user"))
             return False
-    
+
     def _test_ssh_connection(self) -> bool:
         """测试SSH连接"""
         try:
@@ -300,7 +356,7 @@ class PublishHandler(CommandHandler):
             print_error(t("ssh_test_failed", error=str(e)))
             return False
         return True
-    
+
     def _get_commit_message(self) -> Optional[str]:
         """获取提交信息"""
         try:
@@ -312,7 +368,7 @@ class PublishHandler(CommandHandler):
         except KeyboardInterrupt:
             print_error(t("cancel_by_user"))
             return None
-    
+
     def _show_deployment_plan(self, commit_msg: str) -> bool:
         """显示部署计划"""
         print(f"\n{CLIColors.YELLOW}{t('deployment_plan')}{CLIColors.RESET}")
@@ -322,14 +378,14 @@ class PublishHandler(CommandHandler):
         print(t("deploy_step_push_source"))
         print(t("deploy_step_build"))
         print(t("deploy_step_push_pages"))
-        
+
         try:
             response = input(f"\n{CLIColors.YELLOW}{t('confirm_action_prompt')}{CLIColors.RESET}").lower().strip()
             return response in ('y', 'yes')
         except KeyboardInterrupt:
             print_error(t("cancel_by_user"))
             return False
-    
+
     def _execute_deployment(self, processor: BlogProcessor, commit_msg: str) -> int:
         """执行部署"""
         # 验证仓库配置
@@ -338,7 +394,7 @@ class PublishHandler(CommandHandler):
             for error in repo_errors:
                 print_error(error)
             return 1
-        
+
         try:
             print_info(t("starting_deployment_info"))
             success = processor.deploy_to_repos(
@@ -360,7 +416,7 @@ class PublishHandler(CommandHandler):
 
 class PreviewHandler(CommandHandler):
     """预览命令处理器"""
-    
+
     def handle(self) -> int:
         """处理预览命令"""
         paths_valid, path_errors = self.cli_config.validate_paths()
@@ -368,14 +424,14 @@ class PreviewHandler(CommandHandler):
             for error in path_errors:
                 print_error(error)
             return 1
-        
+
         processor = self.cli_config.create_processor()
         if not processor:
             print_error("无法创建博客处理器")
             return 1
-        
+
         print_task_header(t("start_preview_header"), t("preview_process_description"))
-        
+
         try:
             print_info(t("starting_preview_info"))
             processor.preview_site()
@@ -387,7 +443,7 @@ class PreviewHandler(CommandHandler):
 
 class TUIHandler(CommandHandler):
     """TUI命令处理器"""
-    
+
     def handle(self) -> int:
         """处理TUI命令"""
         print_info(t("starting_tui"))
@@ -397,7 +453,7 @@ class TUIHandler(CommandHandler):
 
 class UnpublishHandler(CommandHandler):
     """取消发布命令处理器"""
-    
+
     def handle(self) -> int:
         """处理取消发布命令"""
         paths_valid, path_errors = self.cli_config.validate_paths()
@@ -405,58 +461,129 @@ class UnpublishHandler(CommandHandler):
             for error in path_errors:
                 print_error(error)
             return 1
-        
+
         processor = self.cli_config.create_processor()
         if not processor:
             print_error("无法创建博客处理器")
             return 1
-        
+
+        # 如果使用选择参数，让用户选择文章
+        if getattr(self.args, 'select', False):
+            return self._handle_select_mode(processor)
+        else:
+            return self._handle_normal_mode(processor)
+
+    def _handle_select_mode(self, processor: BlogProcessor) -> int:
+        """处理选择模式的取消发布"""
+        try:
+            # 获取用户选择的文件
+            selected_files = select_articles_to_unpublish(processor)
+            if not selected_files:
+                print_warning(t("no_selection_cancel"))
+                return 0
+
+            print_task_header(t("start_unpublish_header"), t("unpublish_process_description"))
+
+            # 执行取消发布操作
+            success_count = 0
+            for file_path in selected_files:
+                file_path = Path(file_path)
+                article_name = file_path.stem
+
+                # 获取文章的前置数据来推断可能的目录名
+                possible_directory_names = []
+                try:
+                    front_matter, _ = extract_yaml_and_content(file_path)
+                    if front_matter and front_matter.title:
+                        # 基于标题生成可能的目录名（与create_new_post中的逻辑一致）
+                        title_based_dir = front_matter.title.lower().replace(' ', '-')
+                        possible_directory_names.append(title_based_dir)
+                except Exception:
+                    pass  # 如果读取失败，继续使用默认逻辑
+
+                try:
+                    if processor.unpublish_article(article_name, possible_directory_names):
+                        print_subtask_status(
+                            t("unpublish_article_task", article=article_name),
+                            "success",
+                            t("completed_status")
+                        )
+                        success_count += 1
+                    else:
+                        print_subtask_status(
+                            t("unpublish_article_task", article=article_name),
+                            "warning",
+                            t("not_found_status")
+                        )
+                except Exception as e:
+                    print_subtask_status(
+                        t("unpublish_article_task", article=article_name),
+                        "error",
+                        str(e)
+                    )
+
+            if success_count == 0:
+                print_warning(t("no_files_unpublished"))
+                return 0
+
+            # 部署更改
+            return self._deploy_changes(processor)
+
+        except KeyboardInterrupt:
+            print_error(t("cancel_by_user"))
+            return 1
+        except Exception as e:
+            print_error(t("process_file_error", md_file_name="selecting articles to unpublish", error=str(e)))
+            return 1
+
+    def _handle_normal_mode(self, processor: BlogProcessor) -> int:
+        """处理普通模式的取消发布"""
         # 获取已发布文章
         try:
             published = processor.list_published_markdowns()
         except Exception as e:
             print_error(t("list_published_error", error=str(e)))
             return 1
-        
+
         if not published:
             print_warning(t("no_articles_to_unpublish"))
             return 0
-        
+
         # 选择要取消发布的文章
         selected_indices = self._select_articles(published)
         if not selected_indices:
             return 0
-        
+
         # 执行取消发布
         self._unpublish_articles(processor, published, selected_indices)
-        
+
         # 部署更改
         return self._deploy_changes(processor)
-    
+
     def _select_articles(self, published: list) -> list:
         """选择要取消发布的文章"""
         print_task_header(t("start_unpublish_header"), t("unpublish_process_description"))
-        
+
         print_subtask_status(t("list_published_articles_task"), "info", t("found_count_info", count=len(published)))
         for idx, (md_file, yaml_data) in enumerate(published):
             print(f"[{idx}] {md_file}")
-        
+
         try:
             idxs_input = input(t("unpublish_selection_prompt")).strip()
             if not idxs_input:
                 print_warning(t("no_selection_cancel"))
                 return []
-            
+
             idxs = [int(i) for i in idxs_input.split(',') if i.strip().isdigit() and int(i) < len(published)]
             if not idxs:
                 print_error(t("no_valid_indices"))
                 return []
-            
+
             return idxs
         except (ValueError, KeyboardInterrupt):
             print_error(t("cancel_by_user"))
             return []
-    
+
     def _unpublish_articles(self, processor: BlogProcessor, published: list, selected_indices: list):
         """执行取消发布操作"""
         for i in selected_indices:
@@ -477,23 +604,23 @@ class UnpublishHandler(CommandHandler):
                     "error",
                     str(e)
                 )
-    
+
     def _deploy_changes(self, processor: BlogProcessor) -> int:
         """部署更改"""
         print(f"{CLIColors.YELLOW}{t('push_to_remote')}{CLIColors.RESET}")
-        
+
         try:
             commit_msg = input(f"{t('unpublish_commit_prompt')}").strip() or t("default_unpublish_msg")
         except KeyboardInterrupt:
             print_error(t("cancel_by_user"))
             return 1
-        
+
         repos_valid, repo_errors = self.validate_repos()
         if not repos_valid:
             for error in repo_errors:
                 print_error(error)
             return 1
-        
+
         try:
             print_info(t("starting_deployment_info"))
             success = processor.deploy_to_repos(
@@ -515,7 +642,7 @@ class UnpublishHandler(CommandHandler):
 
 class RepublishHandler(CommandHandler):
     """重新发布命令处理器"""
-    
+
     def handle(self) -> int:
         """处理重新发布命令"""
         paths_valid, path_errors = self.cli_config.validate_paths()
@@ -523,43 +650,43 @@ class RepublishHandler(CommandHandler):
             for error in path_errors:
                 print_error(error)
             return 1
-        
+
         processor = self.cli_config.create_processor()
         if not processor:
             print_error("无法创建博客处理器")
             return 1
-        
+
         # 获取已发布文章
         try:
             published = processor.list_published_markdowns()
         except Exception as e:
             print_error(t("list_published_error", error=str(e)))
             return 1
-        
+
         if not published:
             print_warning(t("no_published_articles"))
             return 0
-        
+
         # 取消发布所有文章
         print_step(1, t("unpublish_all_step"))
         self._unpublish_all(processor, published)
-        
+
         # 重新发布
         print_step(2, t("republish_all_step"))
         processed_files = self._republish_all(processor)
         if not processed_files:
             return 1
-        
+
         # 部署
         print_step(3, t("deploy_step"))
         return self._deploy_changes(processor)
-    
+
     def _unpublish_all(self, processor: BlogProcessor, published: list):
         """取消发布所有文章"""
         total_tasks = len(published) + 1 + 1
         from src.utils.cli_utils import ProgressTracker
         progress_tracker = ProgressTracker(total_tasks, t("republish_progress_description"))
-        
+
         for idx, (md_file, _) in enumerate(published):
             article_name = Path(md_file).stem
             try:
@@ -583,21 +710,21 @@ class RepublishHandler(CommandHandler):
                 )
                 continue
             progress_tracker.start_task(t("unpublish_article_task", article=article_name))
-    
+
     def _republish_all(self, processor: BlogProcessor) -> list:
         """重新发布所有文章"""
         try:
             print_info(t("processing_articles_info", count=len(published)))
-            
+
             def progress_callback(current, total):
                 # TODO: 实现进度回调
                 pass
-            
+
             processed_files = processor.process_markdown_files(
                 as_draft=getattr(self.args, 'draft', False),
                 progress_callback=progress_callback
             )
-            
+
             if self.cli_config.output_format == "json":
                 from src.utils import print_formatted_output
                 result = {
@@ -614,22 +741,22 @@ class RepublishHandler(CommandHandler):
                     "success",
                     t("published_count_info", count=len(processed_files))
                 )
-            
+
             return processed_files
         except Exception as e:
             print_error(t("process_file_error", md_file_name="files", error=str(e)))
             return []
-    
+
     def _deploy_changes(self, processor: BlogProcessor) -> int:
         """部署更改"""
         commit_msg = t("start_republish_header")
-        
+
         repos_valid, repo_errors = self.validate_repos()
         if not repos_valid:
             for error in repo_errors:
                 print_error(error)
             return 1
-        
+
         try:
             print_info(t("starting_deployment_info"))
             success = processor.deploy_to_repos(
@@ -648,11 +775,11 @@ class RepublishHandler(CommandHandler):
 def create_argument_parser() -> argparse.ArgumentParser:
     """创建命令行参数解析器"""
     config = Config()
-    
+
     # 获取默认路径
     source_default = config.get('paths.obsidian.vault', '')
     hugo_default = config.get('paths.hugo.blog', '')
-    
+
     # 创建主解析器
     parser = argparse.ArgumentParser(
         prog='hugo-publish',
@@ -660,7 +787,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         epilog=t('cli_epilog'),
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    
+
     # 全局参数
     parser.add_argument('--lang',
                        default=os.getenv('LANG', 'zh-CN').split('.')[0].replace('_', '-'),
@@ -673,10 +800,10 @@ def create_argument_parser() -> argparse.ArgumentParser:
                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                        help=t('cli_log_level_help'))
     parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {t("version")}')
-    
+
     # 添加子命令
     subparsers = parser.add_subparsers(dest='command', help=t('subcommands_help'))
-    
+
     # 发布命令
     publish_parser = subparsers.add_parser('publish', help=t('publish_command_help'))
     publish_parser.add_argument('--source', default=source_default, help=t('cli_source_help'))
@@ -686,20 +813,22 @@ def create_argument_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument('--select', action='store_true', help=t('cli_select_help'))
     publish_parser.add_argument('--output-format', default='default', choices=['default', 'json', 'table'], help=t('cli_output_format_help'))
     publish_parser.add_argument('--no-interactive', action='store_true', help=t('cli_no_interactive_help'))
-    
-    # 取消发布命令
+
+    # 取消发布命令 - 修复：添加 --select 和 --no-interactive 参数
     unpublish_parser = subparsers.add_parser('unpublish', help=t('unpublish_command_help'))
     unpublish_parser.add_argument('--source', default=source_default, help=t('cli_source_help'))
     unpublish_parser.add_argument('--hugo-dir', default=hugo_default, help=t('cli_hugo_dir_help'))
+    unpublish_parser.add_argument('--select', action='store_true', help=t('cli_select_help'))
+    unpublish_parser.add_argument('--no-interactive', action='store_true', help=t('cli_no_interactive_help'))
     unpublish_parser.add_argument('--output-format', default='default', choices=['default', 'json', 'table'], help=t('cli_output_format_help'))
-    
+
     # 预览命令
     preview_parser = subparsers.add_parser('preview', help=t('preview_command_help'))
     preview_parser.add_argument('--source', default=source_default, help=t('cli_source_help'))
     preview_parser.add_argument('--hugo-dir', default=hugo_default, help=t('cli_hugo_dir_help'))
     preview_parser.add_argument('--output-format', default='default', choices=['default', 'json', 'table'], help=t('cli_output_format_help'))
     preview_parser.add_argument('--no-interactive', action='store_true', help=t('cli_no_interactive_help'))
-    
+
     # 重新发布命令
     republish_parser = subparsers.add_parser('republish', help=t('republish_command_help'))
     republish_parser.add_argument('--source', default=source_default, help=t('cli_source_help'))
@@ -707,14 +836,14 @@ def create_argument_parser() -> argparse.ArgumentParser:
     republish_parser.add_argument('--draft', action='store_true', help=t('cli_draft_help'))
     republish_parser.add_argument('--output-format', default='default', choices=['default', 'json', 'table'], help=t('cli_output_format_help'))
     republish_parser.add_argument('--no-interactive', action='store_true', help=t('cli_no_interactive_help'))
-    
+
     # TUI命令
     tui_parser = subparsers.add_parser('tui', help=t('tui_command_help'))
     tui_parser.add_argument('--source', default=source_default, help=t('cli_source_help'))
     tui_parser.add_argument('--hugo-dir', default=hugo_default, help=t('cli_hugo_dir_help'))
     tui_parser.add_argument('--output-format', default='default', choices=['default', 'json', 'table'], help=t('cli_output_format_help'))
     tui_parser.add_argument('--no-interactive', action='store_true', help=t('cli_no_interactive_help'))
-    
+
     return parser
 
 
@@ -727,7 +856,7 @@ def setup_logging(args: argparse.Namespace, config: Config):
         log_file = config.get('logging.file')
         if log_file:
             set_log_file(log_file)
-    
+
     if args.log_level != 'INFO':
         set_log_level(args.log_level)
     else:
@@ -737,7 +866,9 @@ def setup_logging(args: argparse.Namespace, config: Config):
 
 def validate_command_args(args: argparse.Namespace) -> bool:
     """验证命令行参数"""
-    if args.no_interactive and not (hasattr(args, 'files') and args.files or args.command in ['preview', 'republish']):
+    # 修复：检查 no_interactive 属性是否存在
+    no_interactive = getattr(args, 'no_interactive', False)
+    if no_interactive and not (hasattr(args, 'files') and args.files or args.command in ['preview', 'republish']):
         print_error(t("cli_no_interactive_requires_option"))
         return False
     return True
@@ -746,7 +877,7 @@ def validate_command_args(args: argparse.Namespace) -> bool:
 def create_command_handler(args: argparse.Namespace, config: Config) -> Optional[CommandHandler]:
     """创建命令处理器"""
     cli_config = CLIConfig(config, args)
-    
+
     handlers = {
         'publish': PublishHandler,
         'preview': PreviewHandler,
@@ -754,11 +885,11 @@ def create_command_handler(args: argparse.Namespace, config: Config) -> Optional
         'unpublish': UnpublishHandler,
         'republish': RepublishHandler,
     }
-    
+
     handler_class = handlers.get(args.command)
     if not handler_class:
         return None
-    
+
     return handler_class(cli_config)
 
 
@@ -776,14 +907,14 @@ def execute_command(handler: CommandHandler) -> int:
 
 def main() -> int:
     """主入口函数 - 使用重构后的模块化架构
-    
+
     Returns:
         int: 程序退出码 (0=成功, 1=失败)
     """
     try:
         # 加载配置
         config = Config()
-        
+
         # 验证基本配置
         try:
             source_default = config.get('paths.obsidian.vault')
@@ -797,36 +928,36 @@ def main() -> int:
         except Exception as e:
             print_error(t("config_load_error", error=str(e)))
             return 1
-        
+
         # 创建参数解析器并解析参数
         parser = create_argument_parser()
         args = parser.parse_args()
-        
+
         # 检查是否提供了命令
         if not args.command:
             parser.print_help()
             return 0
-        
+
         # 设置语言环境
         set_locale(args.lang)
-        
+
         # 设置日志
         setup_logging(args, config)
-        
+
         # 验证命令参数
         if not validate_command_args(args):
             return 1
-        
+
         # 创建命令处理器
         handler = create_command_handler(args, config)
         if not handler:
             print_error(f"未知命令: {args.command}")
             parser.print_help()
             return 1
-        
+
         # 执行命令
         return execute_command(handler)
-        
+
     except KeyboardInterrupt:
         print_error(t("cancel_by_user"))
         return 1
